@@ -16,7 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "vercel-build": "npm run db:migrate && next build"
+    "vercel-build": "npm run db:migrate && npm run seed && next build"
   },
   "dependencies": {
     "@colorhythm/libraw-wasm": "^1.1.1",
