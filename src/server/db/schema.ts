@@ -361,3 +361,23 @@ export const reports = pgTable(
 );
 
 export type ReportRow = typeof reports.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// 閲覧（閲覧数とおすすめの計算に使う）
+// ---------------------------------------------------------------------------
+export const postViews = pgTable(
+  "post_views",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+    firstViewedAt: timestamp("first_viewed_at", { withTimezone: true }).notNull().defaultNow(),
+    lastViewedAt: timestamp("last_viewed_at", { withTimezone: true }).notNull().defaultNow(),
+    /** 同じ人が見た回数 */
+    count: integer("count").notNull().default(1),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.postId] }), index("post_views_post_idx").on(t.postId)],
+);

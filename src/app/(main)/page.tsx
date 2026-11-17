@@ -2,14 +2,18 @@
 
 import { Camera, CircleCheck } from "lucide-react";
 import { TodayThemeCard } from "@/components/theme/today-theme-card";
+import { Feed } from "@/components/feed/feed";
 import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty";
 import { PageSpinner } from "@/components/ui/spinner";
-import { PostGrid } from "@/components/post/post-grid";
 import { useCurrentTheme } from "@/lib/client/theme";
+import { useMe } from "@/lib/client/session";
+import { useFeedDebug } from "@/lib/client/debug-flags";
 
 export default function HomePage() {
   const { data, error, skew } = useCurrentTheme();
+  const { debugMode } = useMe();
+  const feedDebug = useFeedDebug();
   if (error) return <EmptyState title="お題を読み込めませんでした">通信状態を確認してください。</EmptyState>;
   if (!data) return <PageSpinner label="今日のお題を読み込み中…" />;
   const posted = data.myPostCount > 0;
@@ -39,10 +43,7 @@ export default function HomePage() {
           </p>
         }
       />
-      <section>
-        <h2 className="mb-3 px-1 text-[13px] font-bold tracking-wider text-ink-3">今日のお題の投稿</h2>
-        <PostGrid endpoint={`/api/themes/${data.theme.id}/posts`} emptyText="まだ誰も投稿していません。最初の一枚を。" />
-      </section>
+      <Feed key={`${data.theme.id}-${posted}`} debug={debugMode && feedDebug} />
     </div>
   );
 }
