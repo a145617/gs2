@@ -116,6 +116,7 @@ test.describe("撮影・投稿", () => {
     const ctx = await browser.newContext({ ...test.info().project.use });
     const other = await ctx.newPage();
     await other.addInitScript(() => localStorage.setItem("hk:debugCamera", "fake"));
+    await other.bringToFront();
     await signup(other, { name: "あとから見る人" });
     await other.goto(postUrl);
     await expect(other.getByTestId("locked-post")).toBeVisible();

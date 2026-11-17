@@ -33,6 +33,7 @@ test.describe("いいね・コメント・ブックマーク・フォロー・�
     await signup(other, { name: "見た人" });
     await quickPost(other, "わたしの空", "", "red.jpg");
 
+    await other.bringToFront();
     await open(other, `/p/${post.id}`);
     await other.getByTestId("like-button").click();
     await expect(other.getByTestId("like-count")).toHaveText("1");
@@ -58,6 +59,7 @@ test.describe("いいね・コメント・ブックマーク・フォロー・�
     await expect(other.getByTestId("count-followers")).toHaveText("1");
 
     // 投稿した人にお知らせが届く
+    await page.bringToFront();
     await open(page, "/");
     await expect(page.getByTestId("unread-badge")).toHaveText("3");
     await page.getByRole("link", { name: /お知らせ/ }).click();

@@ -15,6 +15,7 @@ import { useToast } from "@/components/ui/toast";
 import { Caption, LockedImage, MetaLine, PostAuthorRow, TagList } from "@/components/post/post-parts";
 import { PostActions } from "@/components/post/post-actions";
 import { Comments } from "@/components/post/comments";
+import { ContentMenu } from "@/components/moderation/content-menu";
 import { api, ApiError } from "@/lib/client/api";
 import { formatDayKey } from "@/lib/time";
 import type { PostDTO } from "@/lib/types";
@@ -52,6 +53,23 @@ export function PostPage() {
       <PageHeader
         title={post.locked ? "今日のお題の投稿" : post.title}
         subtitle={post.theme ? `${formatDayKey(post.theme.dayKey)}のお題「${post.theme.title}」` : undefined}
+        right={
+          !post.viewer.isMine ? (
+            <ContentMenu
+              targetType="post"
+              targetId={post.id}
+              label="この投稿のメニュー"
+              user={{ handle: post.author.handle, displayName: post.author.displayName }}
+              onReported={(hidden) => {
+                if (hidden) toast.show("通報が集まったため、この投稿は確認が済むまで非表示になりました");
+                void mutate(`/api/posts/${post.id}`);
+              }}
+              onMuteChange={(muted) => {
+                if (muted) router.back();
+              }}
+            />
+          ) : undefined
+        }
       />
       <Card className="flex flex-col gap-4 p-3">
         <div className="px-1 pt-1">

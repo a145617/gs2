@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
 import useSWRInfinite from "swr/infinite";
-import { Pencil, Send, Trash } from "lucide-react";
+import { Flag, Pencil, Send, Trash } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { TextArea } from "@/components/ui/field";
@@ -12,6 +12,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/client/api";
 import { formatRelative } from "@/lib/time";
+import { ReportSheet } from "@/components/moderation/report-sheet";
 import type { CommentDTO, CommentPage, PostDTO } from "@/lib/types";
 
 const MAX = 300;
@@ -20,6 +21,7 @@ function CommentItem({ c, onChanged }: { c: CommentDTO; onChanged: () => void })
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState(c.body);
   const [busy, setBusy] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const toast = useToast();
 
   async function save(e: FormEvent) {
@@ -80,7 +82,7 @@ function CommentItem({ c, onChanged }: { c: CommentDTO; onChanged: () => void })
             {c.body}
           </p>
         )}
-        {!editing && (c.viewer.canEdit || c.viewer.canDelete) && (
+        {!editing && (
           <div className="mt-1 flex gap-3 text-xs text-ink-3">
             {c.viewer.isMine && (
               <button type="button" className="inline-flex items-center gap-1" onClick={() => setEditing(true)}>
@@ -94,8 +96,21 @@ function CommentItem({ c, onChanged }: { c: CommentDTO; onChanged: () => void })
                 削除
               </button>
             )}
+            {!c.viewer.isMine && (
+              <button type="button" className="inline-flex items-center gap-1" onClick={() => setReporting(true)}>
+                <Flag size={12} />
+                通報
+              </button>
+            )}
           </div>
         )}
+        <ReportSheet
+          open={reporting}
+          onClose={() => setReporting(false)}
+          targetType="comment"
+          targetId={c.id}
+          onReported={(hidden) => hidden && onChanged()}
+        />
       </div>
     </li>
   );
