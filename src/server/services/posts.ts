@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, inArray, lt, ne, notInArray, or, sql, type SQL } from "drizzle-orm";
 import { db } from "../db/client";
-import { bookmarks, hashtags, likes, mutes, postHashtags, posts, themes, users, type PostRow } from "../db/schema";
+import { bookmarks, eventCells, events, hashtags, likes, mutes, postHashtags, posts, themes, users, type PostRow } from "../db/schema";
 import { conflict, forbidden, notFound, tooMany, badRequest } from "../http/respond";
 import { deleteObjects, mediaUrl, putObject } from "../storage";
 import { processPostImage, type ProcessedPostImage } from "../images";
@@ -104,6 +104,22 @@ export async function hydratePosts(
   const ids = rows.map((r) => r.id);
   const userIds = Array.from(new Set(rows.map((r) => r.userId)));
   const themeIds = Array.from(new Set(rows.map((r) => r.themeId).filter((x): x is string => !!x)));
+  const eventIds = Array.from(new Set(rows.map((r) => r.eventId).filter((x): x is string => !!x)));
+  const eventPostIds = rows.filter((r) => r.eventId).map((r) => r.id);
+
+  const [eventRows, cellRows] = await Promise.all([
+    eventIds.length
+      ? db.select({ id: events.id, title: events.title, palette: events.palette }).from(events).where(inArray(events.id, eventIds))
+      : Promise.resolve([]),
+    eventPostIds.length
+      ? db
+          .select({ postId: eventCells.postId, colorIndex: eventCells.colorIndex })
+          .from(eventCells)
+          .where(inArray(eventCells.postId, eventPostIds))
+      : Promise.resolve([]),
+  ]);
+  const eventMap = new Map(eventRows.map((e) => [e.id, e]));
+  const colorByPost = new Map(cellRows.map((c) => [c.postId, c.colorIndex]));
 
   const [authorRows, tagRows, themeRows, liked, bookmarked] = await Promise.all([
     db
@@ -170,6 +186,13 @@ export async function hydratePosts(
           }
         : null,
       eventId: r.eventId,
+      event: (() => {
+        const ev = r.eventId ? eventMap.get(r.eventId) : undefined;
+        const ci = colorByPost.get(r.id);
+        if (!ev) return null;
+        const color = ci !== undefined ? ev.palette[ci] : undefined;
+        return { id: ev.id, title: ev.title, colorHex: color?.hex ?? "#888888", colorName: color?.name ?? "" };
+      })(),
       createdAt: r.createdAt.toISOString(),
       editedAt: r.editedAt?.toISOString() ?? null,
       editedByAdmin: !!r.editedByAdminAt,
@@ -302,6 +325,7 @@ export async function insertPost(
           width: processed.width,
           height: processed.height,
           placeholder: processed.placeholder,
+          tile: input.kind === "event" ? processed.tile : null,
           colors: processed.colors,
           meta: input.meta,
           searchText: buildSearchText(input.title, input.caption, tags),

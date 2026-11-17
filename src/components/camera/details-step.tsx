@@ -21,6 +21,7 @@ export function DetailsStep({
   onSubmit,
   errors = {},
   submitting,
+  defaultTitle = "",
 }: {
   developed: Developed;
   meta: PhotoMeta;
@@ -29,8 +30,9 @@ export function DetailsStep({
   onSubmit: (f: PostFields) => void;
   errors?: Record<string, string>;
   submitting: boolean;
+  defaultTitle?: string;
 }) {
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState(defaultTitle);
   const [caption, setCaption] = useState("");
   const [tags, setTags] = useState("");
   const [url, setUrl] = useState<string | null>(null);

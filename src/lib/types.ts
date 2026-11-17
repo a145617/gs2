@@ -151,6 +151,8 @@ export type PostDTO = {
   meta: import("./photo-meta").PhotoMeta | null;
   theme: Pick<ThemeDTO, "id" | "title" | "template" | "templateName" | "accent" | "dayKey"> | null;
   eventId: string | null;
+  /** イベントの投稿なら、イベント名と担当した色 */
+  event: { id: string; title: string; colorHex: string; colorName: string } | null;
   createdAt: string;
   editedAt: string | null;
   editedByAdmin: boolean;
@@ -179,6 +181,68 @@ export type FeedItemDebug = {
 };
 
 export type FeedPost = PostDTO & { feedSection: "following" | "discover"; feedDebug?: FeedItemDebug };
+
+// ------------------------------------------------------------------ イベント
+export type EventColor = {
+  index: number;
+  hex: string;
+  name: string;
+  /** この色のマスの数と、埋まった数 */
+  total: number;
+  filled: number;
+};
+
+export type EventDTO = {
+  id: string;
+  title: string;
+  description: string;
+  gridW: number;
+  gridH: number;
+  palette: EventColor[];
+  threshold: number;
+  /** 指定の色に「近い」とみなす色差 */
+  deltaE: number;
+  startsAt: string;
+  endsAt: string;
+  completedAt: string | null;
+  status: "upcoming" | "active" | "completed" | "ended";
+  totalCells: number;
+  filledCells: number;
+  participants: number;
+  source: "auto" | "admin" | "debug";
+};
+
+/** 閲覧者に割り当てられた色 */
+export type MyEventColor = { index: number; hex: string; name: string; myPosts: number } | null;
+
+export type EventCellDTO = {
+  /** マスの番号（左上から右へ、次の行へ） */
+  i: number;
+  /** 色の番号 */
+  c: number;
+  /** 埋めた投稿（埋まっていなければ null） */
+  postId: string | null;
+  /** 埋めた写真の小さな画像（data URL） */
+  tile: string | null;
+};
+
+export type EventDetailResponse = {
+  event: EventDTO;
+  cells: EventCellDTO[];
+  myColor: MyEventColor;
+  serverNow: string;
+};
+
+/** イベントへの投稿の結果 */
+export type EventPostResult = { post: PostDTO; cellIndex: number; coverage: number; completed: boolean };
+
+export type CurrentEventResponse = {
+  event: EventDTO | null;
+  myColor: MyEventColor;
+  /** 次に予定されているイベント（あれば） */
+  upcoming: EventDTO | null;
+  serverNow: string;
+};
 
 export type FeedPage = {
   items: FeedPost[];

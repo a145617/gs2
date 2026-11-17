@@ -1,8 +1,10 @@
 import {
+  type AnyPgColumn,
   boolean,
   index,
   integer,
   jsonb,
+  real,
   pgEnum,
   pgTable,
   primaryKey,
@@ -14,6 +16,7 @@ import {
 import { TEMPLATE_KEYS } from "../../lib/templates";
 import type { ColorFeatures } from "../../lib/color";
 import type { PhotoMeta } from "../../lib/photo-meta";
+import type { PaletteColor } from "../../lib/pixel-art";
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 const updatedAt = () => timestamp("updated_at", { withTimezone: true }).notNull().defaultNow();
@@ -144,7 +147,7 @@ export const posts = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     kind: postKind("kind").notNull().default("theme"),
     themeId: uuid("theme_id").references(() => themes.id, { onDelete: "set null" }),
-    eventId: uuid("event_id"),
+    eventId: uuid("event_id").references((): AnyPgColumn => events.id, { onDelete: "set null" }),
     title: text("title").notNull(),
     caption: text("caption").notNull().default(""),
     /** 画像の保存キーの接頭辞（推測できない文字列を含む）。<key>/lg.webp などで保存 */
@@ -153,6 +156,8 @@ export const posts = pgTable(
     height: integer("height").notNull(),
     /** ぼかし表示用の小さなプレビュー（data URL） */
     placeholder: text("placeholder").notNull(),
+    /** イベントのピクセルアートに使う正方形の小さな画像（data URL、イベント投稿のみ） */
+    tile: text("tile"),
     /** 色の特徴量（おすすめ表示に使う） */
     colors: jsonb("colors").$type<ColorFeatures>().notNull(),
     /** 撮影情報（シャッタースピード・ISO・絞り など。位置情報は保存しない） */
@@ -383,3 +388,72 @@ export const postViews = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.postId] }), index("post_views_post_idx").on(t.postId)],
 );
+
+// ---------------------------------------------------------------------------
+// イベント（色を指定された写真を1ピクセルとして集め、みんなで1枚の絵を完成させる）
+// ---------------------------------------------------------------------------
+export const eventSource = pgEnum("event_source", ["auto", "admin", "debug"]);
+
+export const events = pgTable(
+  "events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    gridW: integer("grid_w").notNull(),
+    gridH: integer("grid_h").notNull(),
+    /** 使う色（番号はマスの色番号に対応） */
+    palette: jsonb("palette").$type<PaletteColor[]>().notNull(),
+    /** 完成させる絵（各マスの色番号、横 gridW × 縦 gridH） */
+    cells: jsonb("cells").$type<number[]>().notNull(),
+    /** 指定の色が画面のこの割合以上なら合格（0〜1） */
+    threshold: real("threshold").notNull().default(0.25),
+    /** 指定の色に「近い」とみなす色差（CIEDE2000） */
+    deltaE: real("delta_e").notNull().default(22),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    source: eventSource("source").notNull(),
+    presetKey: text("preset_key"),
+    createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("events_starts_idx").on(t.startsAt)],
+);
+
+/** 参加者と、割り当てられた色 */
+export const eventParticipants = pgTable(
+  "event_participants",
+  {
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    colorIndex: integer("color_index").notNull(),
+    assignedAt: timestamp("assigned_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.eventId, t.userId] })],
+);
+
+/** ピクセルアートの各マス（写真で埋まると postId が入る） */
+export const eventCells = pgTable(
+  "event_cells",
+  {
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    cellIndex: integer("cell_index").notNull(),
+    colorIndex: integer("color_index").notNull(),
+    postId: uuid("post_id").references(() => posts.id, { onDelete: "set null" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    /** 写真に指定の色が占めていた割合 */
+    coverage: real("coverage"),
+    filledAt: timestamp("filled_at", { withTimezone: true }),
+  },
+  (t) => [primaryKey({ columns: [t.eventId, t.cellIndex] }), index("event_cells_color_idx").on(t.eventId, t.colorIndex)],
+);
+
+export type EventRow = typeof events.$inferSelect;
+export type EventCellRow = typeof eventCells.$inferSelect;
