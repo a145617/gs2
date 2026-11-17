@@ -84,9 +84,12 @@ test.describe("撮影・投稿", () => {
     await page.getByRole("button", { name: "1:1" }).click();
     await page.getByTestId("develop-next").click();
     await fillDetailsAndPost(page, "ライブラリから");
-    const img = page.getByTestId("post-image");
-    await expect(img).toHaveAttribute("width", /\d+/);
-    expect(await img.getAttribute("width")).toBe(await img.getAttribute("height"));
+    // 1:1 で切り抜いたので、保存された画像も正方形
+    const id = page.url().split("/p/")[1];
+    const json = await (await page.request.get(`/api/posts/${id}`)).json();
+    expect(json.post.image.width).toBe(json.post.image.height);
+    // お題の表示テンプレートで表示される
+    await expect(page.getByTestId("theme-stage")).toHaveAttribute("data-template", json.post.theme.template);
   });
 
   test("RAW（DNG）を取り込み、ブラウザで現像して投稿できる", async ({ page }) => {

@@ -323,6 +323,82 @@ body {
   }
 }
 
+/* ------------------------------------------------ お題の表示テンプレート用 */
+:root {
+  --gallery-wall: linear-gradient(#ece7df, #dbd4c8);
+  --instant-wall: linear-gradient(160deg, #efe9e0, #e2d9cc);
+  --washi: #f3eee2;
+}
+:root[data-theme="dark"] {
+  --gallery-wall: linear-gradient(#34312d, #26231f);
+  --instant-wall: linear-gradient(160deg, #3a352f, #2a2621);
+  --washi: #e9e2d2;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --gallery-wall: linear-gradient(#34312d, #26231f);
+    --instant-wall: linear-gradient(160deg, #3a352f, #2a2621);
+    --washi: #e9e2d2;
+  }
+}
+
+@layer components {
+  /* フィルムの粒子 */
+  .film-grain {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.9'/%3E%3C/svg%3E");
+    opacity: 0.2;
+    mix-blend-mode: overlay;
+    animation: film-grain 0.8s steps(4) infinite;
+  }
+  /* フィルムの光漏れ */
+  .film-leak {
+    background:
+      radial-gradient(circle at 8% 18%, rgba(255, 120, 40, 0.38), transparent 42%),
+      radial-gradient(circle at 96% 85%, rgba(255, 196, 80, 0.24), transparent 40%);
+    mix-blend-mode: screen;
+    animation: film-leak 7s ease-in-out infinite alternate;
+  }
+  /* 和紙 */
+  .washi-paper {
+    background-color: var(--washi);
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.035' numOctaves='4'/%3E%3CfeColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 0 0.33 0 0 0 0.12 0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23p)'/%3E%3C/svg%3E");
+    box-shadow:
+      7px 7px 16px var(--sh-dark),
+      -7px -7px 16px var(--sh-light),
+      inset 0 0 30px rgba(120, 100, 70, 0.12);
+  }
+}
+
+@keyframes film-grain {
+  0% {
+    background-position: 0 0;
+  }
+  25% {
+    background-position: -40px 30px;
+  }
+  50% {
+    background-position: 30px -50px;
+  }
+  75% {
+    background-position: -60px -20px;
+  }
+  100% {
+    background-position: 20px 40px;
+  }
+}
+
+@keyframes film-leak {
+  from {
+    opacity: 0.55;
+    transform: translateX(-2%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(3%);
+  }
+}
+
 /* ------------------------------------------------- ニューモーフィズムのスライダー */
 @layer components {
   .neu-range {
