@@ -164,6 +164,8 @@ export const posts = pgTable(
     bookmarkCount: integer("bookmark_count").notNull().default(0),
     viewCount: integer("view_count").notNull().default(0),
     reportCount: integer("report_count").notNull().default(0),
+    /** 検索用のテキスト（タイトル・キャプション・タグを正規化して連結） */
+    searchText: text("search_text").notNull().default(""),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
     editedAt: timestamp("edited_at", { withTimezone: true }),

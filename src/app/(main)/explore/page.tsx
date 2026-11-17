@@ -1,13 +1,11 @@
-"use client";
+import { Suspense } from "react";
+import { PageSpinner } from "@/components/ui/spinner";
+import { ExplorePage } from "./client";
 
-import { PageHeader } from "@/components/shell/page-header";
-import { ThemeArchive } from "@/components/theme/theme-archive";
-
-export default function ExplorePage() {
+export default function Page() {
   return (
-    <div className="flex flex-col gap-6 animate-fade-up">
-      <PageHeader title="さがす" back={false} />
-      <ThemeArchive />
-    </div>
+    <Suspense fallback={<PageSpinner />}>
+      <ExplorePage />
+    </Suspense>
   );
 }
