@@ -1,5 +1,18 @@
-import { boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { TEMPLATE_KEYS } from "../../lib/templates";
+import type { ColorFeatures } from "../../lib/color";
+import type { PhotoMeta } from "../../lib/photo-meta";
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 const updatedAt = () => timestamp("updated_at", { withTimezone: true }).notNull().defaultNow();
@@ -114,3 +127,75 @@ export const themes = pgTable(
 
 export type ThemeRow = typeof themes.$inferSelect;
 export type ThemePoolRow = typeof themePool.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// 投稿
+// ---------------------------------------------------------------------------
+export const postKind = pgEnum("post_kind", ["theme", "event"]);
+export const postStatus = pgEnum("post_status", ["visible", "hidden", "deleted"]);
+
+export const posts = pgTable(
+  "posts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: postKind("kind").notNull().default("theme"),
+    themeId: uuid("theme_id").references(() => themes.id, { onDelete: "set null" }),
+    eventId: uuid("event_id"),
+    title: text("title").notNull(),
+    caption: text("caption").notNull().default(""),
+    /** 画像の保存キーの接頭辞（推測できない文字列を含む）。<key>/lg.webp などで保存 */
+    imageKey: text("image_key").notNull(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    /** ぼかし表示用の小さなプレビュー（data URL） */
+    placeholder: text("placeholder").notNull(),
+    /** 色の特徴量（おすすめ表示に使う） */
+    colors: jsonb("colors").$type<ColorFeatures>().notNull(),
+    /** 撮影情報（シャッタースピード・ISO・絞り など。位置情報は保存しない） */
+    meta: jsonb("meta").$type<PhotoMeta>().notNull(),
+    status: postStatus("status").notNull().default("visible"),
+    hiddenReason: text("hidden_reason"),
+    likeCount: integer("like_count").notNull().default(0),
+    commentCount: integer("comment_count").notNull().default(0),
+    bookmarkCount: integer("bookmark_count").notNull().default(0),
+    viewCount: integer("view_count").notNull().default(0),
+    reportCount: integer("report_count").notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    editedAt: timestamp("edited_at", { withTimezone: true }),
+    editedByAdminAt: timestamp("edited_by_admin_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("posts_theme_idx").on(t.themeId, t.createdAt),
+    index("posts_user_idx").on(t.userId, t.createdAt),
+    index("posts_created_idx").on(t.createdAt),
+    index("posts_event_idx").on(t.eventId),
+  ],
+);
+
+export const hashtags = pgTable("hashtags", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** 正規化したタグ名（# なし・小文字） */
+  name: text("name").notNull().unique(),
+  postCount: integer("post_count").notNull().default(0),
+  createdAt: createdAt(),
+});
+
+export const postHashtags = pgTable(
+  "post_hashtags",
+  {
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+    hashtagId: uuid("hashtag_id")
+      .notNull()
+      .references(() => hashtags.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.postId, t.hashtagId] }), index("post_hashtags_tag_idx").on(t.hashtagId)],
+);
+
+export type PostRow = typeof posts.$inferSelect;
+export type HashtagRow = typeof hashtags.$inferSelect;

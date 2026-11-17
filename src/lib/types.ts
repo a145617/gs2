@@ -59,4 +59,49 @@ export type CurrentThemeResponse = {
   /** 次にお題が切り替わる時刻 */
   nextChangeAt: string;
   serverNow: string;
+  /** 自分がこのお題に投稿した数 */
+  myPostCount: number;
+  /** 1日の投稿数の上限（null なら無制限） */
+  dailyLimit: number | null;
+  /** このお題への投稿の総数 */
+  postCount: number;
 };
+
+/** 投稿の作者（一覧表示用） */
+export type PostAuthor = Pick<PublicUser, "id" | "handle" | "displayName" | "avatarUrl">;
+
+export type PostImage = {
+  lg: string;
+  md: string;
+  sm: string;
+  width: number;
+  height: number;
+};
+
+/** 投稿 */
+export type PostDTO = {
+  id: string;
+  kind: "theme" | "event";
+  author: PostAuthor;
+  /**
+   * 今日のお題の投稿で、閲覧者がまだ投稿していない場合は true。
+   * このとき画像・タイトル・本文は返さず、ぼかしたプレビューだけを返す。
+   */
+  locked: boolean;
+  placeholder: string;
+  image: PostImage | null;
+  title: string;
+  caption: string;
+  tags: string[];
+  meta: import("./photo-meta").PhotoMeta | null;
+  theme: Pick<ThemeDTO, "id" | "title" | "template" | "templateName" | "accent" | "dayKey"> | null;
+  eventId: string | null;
+  createdAt: string;
+  editedAt: string | null;
+  editedByAdmin: boolean;
+  status: "visible" | "hidden" | "deleted";
+  counts: { likes: number; comments: number; bookmarks: number; views: number };
+  viewer: { liked: boolean; bookmarked: boolean; isMine: boolean; canEdit: boolean };
+};
+
+export type PostPage = { items: PostDTO[]; nextCursor: string | null };

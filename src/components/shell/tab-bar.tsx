@@ -16,9 +16,16 @@ const ITEMS: Item[] = [
   { href: "/me", label: "マイページ", icon: UserRound, match: (p) => p === "/me" || p.startsWith("/settings") || p.startsWith("/bookmarks") },
 ];
 
-/** 画面下のすりガラスのタブバー。中央の「撮る」だけ浮き出たボタンにする */
-export function TabBar({ meHref = "/me", eventActive = false }: { meHref?: string; eventActive?: boolean }) {
+type TabBarProps = { meHref?: string; eventActive?: boolean };
+
+/** 画面下のすりガラスのタブバー（現在のページを強調表示する） */
+export function TabBar(props: TabBarProps) {
   const pathname = usePathname() ?? "/";
+  return <TabBarView {...props} pathname={pathname} />;
+}
+
+/** タブバーの見た目。中央の「撮る」だけ浮き出たボタンにする */
+export function TabBarView({ meHref = "/me", eventActive = false, pathname }: TabBarProps & { pathname: string }) {
   return (
     <nav
       aria-label="メインメニュー"

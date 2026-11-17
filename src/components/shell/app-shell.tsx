@@ -1,23 +1,36 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Bell, ShieldCheck } from "lucide-react";
 import { Header } from "./header";
-import { TabBar } from "./tab-bar";
+import { TabBar, TabBarView } from "./tab-bar";
 import { useMe } from "@/lib/client/session";
 import { useCurrentTheme } from "@/lib/client/theme";
 import { applyAccent } from "@/lib/client/prefs";
 
 /** 今日のお題の色を、UI全体のアクセント色にする（毎日変わる） */
-function ThemeAccentSync({ enabled }: { enabled: boolean }) {
+function ThemeAccentSync() {
   const { data } = useCurrentTheme();
-  const accent = enabled ? data?.theme.accent : undefined;
+  const accent = data?.theme.accent;
   useEffect(() => {
     if (accent) applyAccent(accent);
   }, [accent]);
+  return null;
+}
+
+/** セッションが切れていたらログイン画面へ */
+function AuthRedirect({ unauthorized }: { unauthorized: boolean }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  useEffect(() => {
+    if (unauthorized) {
+      const next = pathname && pathname !== "/" ? `?next=${encodeURIComponent(pathname)}` : "";
+      router.replace(`/login${next}`);
+    }
+  }, [unauthorized, pathname, router]);
   return null;
 }
 
@@ -27,20 +40,13 @@ const iconLink =
 /** ログイン後の画面共通の枠（ヘッダー・本文・タブバー） */
 export function AppShell({ children }: { children: ReactNode }) {
   const { me, unauthorized } = useMe();
-  const router = useRouter();
-  const pathname = usePathname();
-
-  // セッションが切れていたらログイン画面へ
-  useEffect(() => {
-    if (unauthorized) {
-      const next = pathname && pathname !== "/" ? `?next=${encodeURIComponent(pathname)}` : "";
-      router.replace(`/login${next}`);
-    }
-  }, [unauthorized, pathname, router]);
 
   return (
     <>
-      {me && <ThemeAccentSync enabled />}
+      {me && <ThemeAccentSync />}
+      <Suspense fallback={null}>
+        <AuthRedirect unauthorized={unauthorized} />
+      </Suspense>
       <Header
         right={
           <>
@@ -56,7 +62,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         }
       />
       <main className="safe-bottom mx-auto w-full max-w-2xl px-4 pt-5">{children}</main>
-      <TabBar />
+      {/* 現在のURLを読む部品は Suspense で囲む（Next.js の静的シェルを壊さないため） */}
+      <Suspense fallback={<TabBarView pathname="" />}>
+        <TabBar />
+      </Suspense>
     </>
   );
 }
