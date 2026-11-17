@@ -7,6 +7,7 @@ import { ContentMenu } from "@/components/moderation/content-menu";
 import { PostActions } from "./post-actions";
 import { Caption, MetaLine, PostAuthorRow, TagList } from "./post-parts";
 import { useViewTracker } from "@/lib/client/view-tracker";
+import { ThemeStage } from "@/components/stage/theme-stage";
 import { formatDayKey } from "@/lib/time";
 import type { FeedPost } from "@/lib/types";
 
@@ -47,6 +48,18 @@ export function PostCard({ post, showDebug }: { post: FeedPost; showDebug?: bool
             </LinkButton>
           </div>
         </div>
+      ) : post.theme ? (
+        <ThemeStage
+          template={post.theme.template}
+          accent={post.theme.accent}
+          src={post.image.md}
+          width={post.image.width}
+          height={post.image.height}
+          title={post.title}
+          authorName={post.author.displayName}
+          dayLabel={formatDayKey(post.theme.dayKey)}
+          variant="card"
+        />
       ) : (
         <Link href={`/p/${post.id}`} className="block overflow-hidden rounded-[20px]" aria-label={post.title}>
           {/* eslint-disable-next-line @next/next/no-img-element -- 同一オリジンで配信する画像 */}

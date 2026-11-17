@@ -16,6 +16,7 @@ import { Caption, LockedImage, MetaLine, PostAuthorRow, TagList } from "@/compon
 import { PostActions } from "@/components/post/post-actions";
 import { Comments } from "@/components/post/comments";
 import { ContentMenu } from "@/components/moderation/content-menu";
+import { ThemeStage } from "@/components/stage/theme-stage";
 import { api, ApiError } from "@/lib/client/api";
 import { formatDayKey } from "@/lib/time";
 import type { PostDTO } from "@/lib/types";
@@ -77,6 +78,20 @@ export function PostPage() {
         </div>
         {post.locked || !post.image ? (
           <LockedImage post={post} className="aspect-[4/5] w-full rounded-[18px]" />
+        ) : post.theme ? (
+          <div data-testid="post-image">
+            <ThemeStage
+              template={post.theme.template}
+              accent={post.theme.accent}
+              src={post.image.lg}
+              width={post.image.width}
+              height={post.image.height}
+              title={post.title}
+              authorName={post.author.displayName}
+              dayLabel={formatDayKey(post.theme.dayKey)}
+              variant="detail"
+            />
+          </div>
         ) : (
           // eslint-disable-next-line @next/next/no-img-element -- 同一オリジンで配信する画像
           <img
