@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/empty";
 import { PageSpinner } from "@/components/ui/spinner";
 import { PostGrid } from "@/components/post/post-grid";
 import { FollowButton } from "./follow-button";
+import { ContentMenu } from "@/components/moderation/content-menu";
 import type { ApiError } from "@/lib/client/api";
 import type { ProfileResponse } from "@/lib/types";
 
@@ -92,6 +93,13 @@ export function ProfileView({ handle, actions, children }: { handle: string; act
                 following={data.following}
                 onChange={() => mutate()}
               />
+              <ContentMenu
+                targetType="user"
+                targetId={user.id}
+                label="このユーザーのメニュー"
+                user={{ handle: user.handle, displayName: user.displayName, muted: data.muted }}
+                onMuteChange={() => mutate()}
+              />
               {actions}
             </>
           )}
@@ -100,7 +108,13 @@ export function ProfileView({ handle, actions, children }: { handle: string; act
       {children}
       <section>
         <h2 className="mb-3 px-1 text-[13px] font-bold tracking-wider text-ink-3">投稿</h2>
-        <PostGrid endpoint={`/api/users/${encodeURIComponent(user.handle)}/posts`} />
+        {data.muted ? (
+          <p className="neu-inset rounded-[20px] p-5 text-center text-sm text-ink-2" data-testid="muted-notice">
+            ミュート中のため、このユーザーの投稿は表示していません。
+          </p>
+        ) : (
+          <PostGrid key={String(data.muted)} endpoint={`/api/users/${encodeURIComponent(user.handle)}/posts`} />
+        )}
       </section>
     </div>
   );

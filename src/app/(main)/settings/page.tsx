@@ -7,6 +7,7 @@ import { useSWRConfig } from "swr";
 import { KeyRound, LogOut, Monitor, Moon, Sun, Trash } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
 import { AvatarEditor } from "@/components/settings/avatar-editor";
+import { MutedUsers } from "@/components/settings/muted-users";
 import { Button } from "@/components/ui/button";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { TextArea, TextField } from "@/components/ui/field";
@@ -35,6 +36,7 @@ export default function SettingsPage() {
       <PageHeader title="設定" />
       <ProfileSection me={me} onUpdated={update} />
       <DisplaySection />
+      <MutedUsers />
       <AccountSection me={me} />
     </div>
   );

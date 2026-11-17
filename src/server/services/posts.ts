@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, inArray, lt, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, ne, notInArray, or, sql, type SQL } from "drizzle-orm";
 import { db } from "../db/client";
-import { bookmarks, hashtags, likes, postHashtags, posts, themes, users, type PostRow } from "../db/schema";
+import { bookmarks, hashtags, likes, mutes, postHashtags, posts, themes, users, type PostRow } from "../db/schema";
 import { conflict, forbidden, notFound, tooMany, badRequest } from "../http/respond";
 import { deleteObjects, mediaUrl, putObject } from "../storage";
 import { processPostImage, type ProcessedPostImage } from "../images";
@@ -388,13 +388,28 @@ export async function deletePost(viewer: ViewerCtx, id: string, opts: { asAdmin?
 // ------------------------------------------------------------ 一覧
 const PAGE = 24;
 
-async function pageOf(viewer: ViewerCtx, at: Date, where: SQL | undefined, cursor: string | null): Promise<PostPage> {
+/** 閲覧者がミュートしているユーザーの投稿を除く条件 */
+export function notMutedBy(viewerId: string): SQL {
+  return notInArray(
+    posts.userId,
+    db.select({ id: mutes.mutedUserId }).from(mutes).where(eq(mutes.userId, viewerId)),
+  );
+}
+
+async function pageOf(
+  viewer: ViewerCtx,
+  at: Date,
+  where: SQL | undefined,
+  cursor: string | null,
+  opts: { excludeMuted?: boolean } = {},
+): Promise<PostPage> {
   const c = decodeCursor(cursor);
+  const muteCond = opts.excludeMuted === false ? undefined : notMutedBy(viewer.id);
   const rows = await db
     .select({ post: posts })
     .from(posts)
     .innerJoin(users, eq(users.id, posts.userId))
-    .where(and(where, eq(posts.status, "visible"), eq(users.status, "active"), beforeCursor(c)))
+    .where(and(where, eq(posts.status, "visible"), eq(users.status, "active"), muteCond, beforeCursor(c)))
     .orderBy(desc(posts.createdAt), desc(posts.id))
     .limit(PAGE + 1);
   const list = rows.slice(0, PAGE).map((r) => r.post);
@@ -403,8 +418,9 @@ async function pageOf(viewer: ViewerCtx, at: Date, where: SQL | undefined, curso
   return { items, nextCursor: rows.length > PAGE && last ? encodeCursor(last.createdAt, last.id) : null };
 }
 
+/** ユーザーの投稿（プロフィール。ミュート中かどうかはプロフィール側で扱う） */
 export function listUserPosts(viewer: ViewerCtx, userId: string, at: Date, cursor: string | null) {
-  return pageOf(viewer, at, eq(posts.userId, userId), cursor);
+  return pageOf(viewer, at, eq(posts.userId, userId), cursor, { excludeMuted: false });
 }
 
 export function listThemePosts(viewer: ViewerCtx, themeId: string, at: Date, cursor: string | null) {

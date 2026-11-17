@@ -6,6 +6,7 @@ import { requireViewer } from "@/server/http/viewer";
 import { hitRateLimit } from "@/server/rate-limit";
 import { now } from "@/server/clock";
 import { addComment, COMMENT_MAX, listComments } from "@/server/services/social";
+import { mutedUserIds } from "@/server/services/moderation";
 
 type Ctx = RouteContext<"/api/posts/[id]/comments">;
 
@@ -13,7 +14,8 @@ export const GET = route(async (req: NextRequest, ctx: Ctx) => {
   const viewer = await requireViewer(req);
   const { id } = await ctx.params;
   const cursor = req.nextUrl.searchParams.get("cursor");
-  return json(await listComments(viewer, id, await now(), cursor));
+  // ミュート中のユーザーのコメントは表示しない
+  return json(await listComments(viewer, id, await now(), cursor, { excludeUserIds: await mutedUserIds(viewer.id) }));
 });
 
 const bodySchema = z.object({

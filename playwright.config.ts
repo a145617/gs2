@@ -9,7 +9,8 @@ const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 
 export default defineConfig({
   testDir: "./e2e",
-  timeout: 60_000,
+  // Windows 版の WebKit は動作が遅いため、1テストあたりの上限を長めにする
+  timeout: 150_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
   workers: 1,
@@ -21,6 +22,9 @@ export default defineConfig({
     timezoneId: "Asia/Tokyo",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+    // アニメーションの途中状態に左右されないよう「動きを減らす」設定で確認する
+    // （Windows 版の WebKit では、操作後に始まった CSS アニメーションが進まないことがあるため）
+    contextOptions: { reducedMotion: "reduce" },
   },
   projects: [
     { name: "android-chrome", use: { ...devices["Pixel 7"] } },

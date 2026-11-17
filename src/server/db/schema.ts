@@ -8,6 +8,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { TEMPLATE_KEYS } from "../../lib/templates";
@@ -301,3 +302,62 @@ export const notifications = pgTable(
 
 export type CommentRow = typeof comments.$inferSelect;
 export type NotificationRow = typeof notifications.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// ミュート・通報
+// ---------------------------------------------------------------------------
+/** 特定のユーザーの投稿を表示しない */
+export const mutes = pgTable(
+  "mutes",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    mutedUserId: uuid("muted_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.mutedUserId] })],
+);
+
+export const reportTarget = pgEnum("report_target", ["post", "comment", "user"]);
+export const reportReason = pgEnum("report_reason", [
+  "spam",
+  "inappropriate",
+  "violence",
+  "harassment",
+  "copyright",
+  "privacy",
+  "off_topic",
+  "other",
+]);
+export const reportStatus = pgEnum("report_status", ["open", "resolved", "dismissed"]);
+
+export const reports = pgTable(
+  "reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reporterId: uuid("reporter_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    targetType: reportTarget("target_type").notNull(),
+    targetId: uuid("target_id").notNull(),
+    /** 通報された内容の持ち主（投稿者・コメント主・ユーザー本人） */
+    targetUserId: uuid("target_user_id").references(() => users.id, { onDelete: "set null" }),
+    reason: reportReason("reason").notNull(),
+    detail: text("detail").notNull().default(""),
+    status: reportStatus("status").notNull().default("open"),
+    resolution: text("resolution"),
+    resolvedById: uuid("resolved_by_id").references(() => users.id, { onDelete: "set null" }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("reports_unique_idx").on(t.reporterId, t.targetType, t.targetId),
+    index("reports_status_idx").on(t.status, t.createdAt),
+    index("reports_target_idx").on(t.targetType, t.targetId),
+  ],
+);
+
+export type ReportRow = typeof reports.$inferSelect;
