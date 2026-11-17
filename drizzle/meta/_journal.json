@@ -22,6 +22,13 @@
       "when": 1794932876457,
       "tag": "0002_themes",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794933791855,
+      "tag": "0003_posts",
+      "breakpoints": true
     }
   ]
 }

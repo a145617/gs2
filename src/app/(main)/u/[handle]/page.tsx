@@ -1,15 +1,12 @@
-"use client";
+import { Suspense } from "react";
+import { PageSpinner } from "@/components/ui/spinner";
+import { UserPage } from "./client";
 
-import { useParams } from "next/navigation";
-import { PageHeader } from "@/components/shell/page-header";
-import { ProfileView } from "@/components/profile/profile-view";
-
-export default function UserPage() {
-  const { handle } = useParams<{ handle: string }>();
+// URL（パラメータ）を読むクライアント部品は Suspense で囲む
+export default function Page() {
   return (
-    <>
-      <PageHeader title="プロフィール" />
-      <ProfileView handle={handle} />
-    </>
+    <Suspense fallback={<PageSpinner />}>
+      <UserPage />
+    </Suspense>
   );
 }

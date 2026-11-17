@@ -8,6 +8,7 @@ import { LinkButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty";
 import { PageSpinner } from "@/components/ui/spinner";
+import { PostGrid } from "@/components/post/post-grid";
 import type { ApiError } from "@/lib/client/api";
 import type { ProfileResponse } from "@/lib/types";
 
@@ -54,6 +55,10 @@ export function ProfileView({ handle, actions, children }: { handle: string; act
         </div>
       </Card>
       {children}
+      <section>
+        <h2 className="mb-3 px-1 text-[13px] font-bold tracking-wider text-ink-3">投稿</h2>
+        <PostGrid endpoint={`/api/users/${encodeURIComponent(user.handle)}/posts`} />
+      </section>
     </div>
   );
 }

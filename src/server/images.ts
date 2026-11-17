@@ -1,5 +1,6 @@
 import sharp from "sharp";
 import { badRequest } from "./http/respond";
+import { analyzeColors, type ColorFeatures } from "@/lib/color";
 
 /** 受け付ける画像形式（ファイル先頭のバイトで判定） */
 export function sniffImageType(buf: Uint8Array): "jpeg" | "png" | "webp" | null {
@@ -50,3 +51,51 @@ export async function processAvatar(buf: Buffer): Promise<Buffer> {
 }
 
 export { pipeline as imagePipeline };
+
+export type ProcessedPostImage = {
+  lg: Buffer;
+  md: Buffer;
+  sm: Buffer;
+  /** イベントのピクセルアートに使う正方形の小さな画像（data URL） */
+  tile: string;
+  placeholder: string;
+  width: number;
+  height: number;
+  colors: ColorFeatures;
+  /** 色判定用の縮小画素（RGB, 96px 以内） */
+  analysis: { data: Buffer; width: number; height: number };
+};
+
+/**
+ * 投稿画像を処理する: 向きを補正し、3サイズの WebP・ぼかし用プレビュー・色の特徴量を作る。
+ * メタデータ（位置情報など）は書き出さない。
+ */
+export async function processPostImage(buf: Buffer): Promise<ProcessedPostImage> {
+  try {
+    const [lg, md, sm, ph, tile, small] = await Promise.all([
+      pipeline(buf)
+        .resize(2048, 2048, { fit: "inside", withoutEnlargement: true })
+        .webp({ quality: 84 })
+        .toBuffer({ resolveWithObject: true }),
+      pipeline(buf).resize(1080, 1080, { fit: "inside", withoutEnlargement: true }).webp({ quality: 80 }).toBuffer(),
+      pipeline(buf).resize(480, 480, { fit: "inside", withoutEnlargement: true }).webp({ quality: 76 }).toBuffer(),
+      pipeline(buf).resize(24, 24, { fit: "inside" }).webp({ quality: 45 }).toBuffer(),
+      pipeline(buf).resize(24, 24, { fit: "cover", position: "attention" }).webp({ quality: 60 }).toBuffer(),
+      pipeline(buf).resize(96, 96, { fit: "inside" }).removeAlpha().raw().toBuffer({ resolveWithObject: true }),
+    ]);
+    const colors = analyzeColors(small.data, 3);
+    return {
+      lg: lg.data,
+      md,
+      sm,
+      tile: `data:image/webp;base64,${tile.toString("base64")}`,
+      placeholder: `data:image/webp;base64,${ph.toString("base64")}`,
+      width: lg.info.width,
+      height: lg.info.height,
+      colors,
+      analysis: { data: small.data, width: small.info.width, height: small.info.height },
+    };
+  } catch {
+    throw badRequest("画像を読み込めませんでした。別の画像でお試しください");
+  }
+}

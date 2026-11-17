@@ -51,3 +51,6 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# build output of web workers (npm run predev / prebuild)
+/public/workers/

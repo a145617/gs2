@@ -67,3 +67,32 @@ export const passwordChangeSchema = z.object({
 export const accountDeleteSchema = z.object({
   password: z.string().min(1, "パスワードを入力してください"),
 });
+
+// ------------------------------------------------------------------ 投稿
+export const POST_LIMITS = { title: 40, caption: 500, tagsInput: 400 } as const;
+
+export const postTitleSchema = z
+  .string("タイトルを入力してください")
+  .transform(cleanText)
+  .pipe(
+    z
+      .string()
+      .min(1, "タイトルを入力してください")
+      .max(POST_LIMITS.title, `タイトルは${POST_LIMITS.title}文字以内にしてください`),
+  );
+
+export const postCaptionSchema = z
+  .string()
+  .transform((s) => s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").trim())
+  .pipe(z.string().max(POST_LIMITS.caption, `キャプションは${POST_LIMITS.caption}文字以内にしてください`));
+
+export const postTagsSchema = z.union([
+  z.string().max(POST_LIMITS.tagsInput, "ハッシュタグが長すぎます"),
+  z.array(z.string().max(60)).max(20),
+]);
+
+export const postUpdateSchema = z.object({
+  title: postTitleSchema.optional(),
+  caption: postCaptionSchema.optional(),
+  tags: postTagsSchema.optional(),
+});
