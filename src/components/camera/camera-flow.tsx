@@ -26,6 +26,7 @@ export function CameraFlow({
   onSubmit,
   streamFactory,
   capabilityOverride,
+  defaultTitle,
 }: {
   header?: ReactNode;
   context?: ReactNode;
@@ -33,6 +34,7 @@ export function CameraFlow({
   onSubmit: (p: SubmitPayload) => Promise<void>;
   streamFactory?: StreamFactory;
   capabilityOverride?: (caps: CameraCapabilities) => CameraCapabilities;
+  defaultTitle?: string;
 }) {
   const [step, setStep] = useState<Step>("capture");
   const [captured, setCaptured] = useState<Captured | null>(null);
@@ -93,6 +95,7 @@ export function CameraFlow({
           onSubmit={submit}
           errors={errors}
           submitting={submitting}
+          defaultTitle={defaultTitle}
         />
       )}
     </div>

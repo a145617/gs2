@@ -8,6 +8,7 @@ import { PostActions } from "./post-actions";
 import { Caption, MetaLine, PostAuthorRow, TagList } from "./post-parts";
 import { useViewTracker } from "@/lib/client/view-tracker";
 import { ThemeStage } from "@/components/stage/theme-stage";
+import { EventStage } from "@/components/event/event-stage";
 import { formatDayKey } from "@/lib/time";
 import type { FeedPost } from "@/lib/types";
 
@@ -48,6 +49,8 @@ export function PostCard({ post, showDebug }: { post: FeedPost; showDebug?: bool
             </LinkButton>
           </div>
         </div>
+      ) : post.event ? (
+        <EventStage src={post.image.md} width={post.image.width} height={post.image.height} title={post.title} event={post.event} />
       ) : post.theme ? (
         <ThemeStage
           template={post.theme.template}

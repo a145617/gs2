@@ -17,6 +17,7 @@ import { PostActions } from "@/components/post/post-actions";
 import { Comments } from "@/components/post/comments";
 import { ContentMenu } from "@/components/moderation/content-menu";
 import { ThemeStage } from "@/components/stage/theme-stage";
+import { EventStage } from "@/components/event/event-stage";
 import { api, ApiError } from "@/lib/client/api";
 import { formatDayKey } from "@/lib/time";
 import type { PostDTO } from "@/lib/types";
@@ -78,6 +79,10 @@ export function PostPage() {
         </div>
         {post.locked || !post.image ? (
           <LockedImage post={post} className="aspect-[4/5] w-full rounded-[18px]" />
+        ) : post.event ? (
+          <div data-testid="post-image">
+            <EventStage src={post.image.lg} width={post.image.width} height={post.image.height} title={post.title} event={post.event} />
+          </div>
         ) : post.theme ? (
           <div data-testid="post-image">
             <ThemeStage

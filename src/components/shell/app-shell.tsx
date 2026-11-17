@@ -10,6 +10,8 @@ import { TabBar, TabBarView } from "./tab-bar";
 import { useMe } from "@/lib/client/session";
 import { useCurrentTheme } from "@/lib/client/theme";
 import { applyAccent } from "@/lib/client/prefs";
+import useSWR from "swr";
+import type { CurrentEventResponse } from "@/lib/types";
 
 /** 今日のお題の色を、UI全体のアクセント色にする（毎日変わる） */
 function ThemeAccentSync() {
@@ -40,6 +42,9 @@ const iconLink =
 /** ログイン後の画面共通の枠（ヘッダー・本文・タブバー） */
 export function AppShell({ children }: { children: ReactNode }) {
   const { me, unauthorized, unread } = useMe();
+  // 開催中のイベントがあればタブバーに印を付ける（自動開催の確認も兼ねる）
+  const { data: ev } = useSWR<CurrentEventResponse>(me ? "/api/events/current" : null, { refreshInterval: 5 * 60 * 1000 });
+  const eventActive = ev?.event?.status === "active";
 
   return (
     <>
@@ -75,8 +80,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       />
       <main className="safe-bottom mx-auto w-full max-w-2xl px-4 pt-5">{children}</main>
       {/* 現在のURLを読む部品は Suspense で囲む（Next.js の静的シェルを壊さないため） */}
-      <Suspense fallback={<TabBarView pathname="" />}>
-        <TabBar />
+      <Suspense fallback={<TabBarView pathname="" eventActive={eventActive} />}>
+        <TabBar eventActive={eventActive} />
       </Suspense>
     </>
   );
