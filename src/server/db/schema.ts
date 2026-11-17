@@ -199,3 +199,105 @@ export const postHashtags = pgTable(
 
 export type PostRow = typeof posts.$inferSelect;
 export type HashtagRow = typeof hashtags.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// いいね・ブックマーク・コメント・フォロー・通知
+// ---------------------------------------------------------------------------
+export const likes = pgTable(
+  "likes",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.postId] }), index("likes_post_idx").on(t.postId)],
+);
+
+export const bookmarks = pgTable(
+  "bookmarks",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.postId] }), index("bookmarks_user_idx").on(t.userId, t.createdAt)],
+);
+
+export const commentStatus = pgEnum("comment_status", ["visible", "hidden", "deleted"]);
+
+export const comments = pgTable(
+  "comments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    status: commentStatus("status").notNull().default("visible"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    editedAt: timestamp("edited_at", { withTimezone: true }),
+    editedByAdminAt: timestamp("edited_by_admin_at", { withTimezone: true }),
+  },
+  (t) => [index("comments_post_idx").on(t.postId, t.createdAt), index("comments_user_idx").on(t.userId)],
+);
+
+export const follows = pgTable(
+  "follows",
+  {
+    followerId: uuid("follower_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    followeeId: uuid("followee_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.followerId, t.followeeId] }), index("follows_followee_idx").on(t.followeeId)],
+);
+
+export const notificationType = pgEnum("notification_type", [
+  "like",
+  "comment",
+  "follow",
+  "warning",
+  "post_edited",
+  "post_removed",
+  "comment_edited",
+  "comment_removed",
+  "event",
+  "report_resolved",
+]);
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** 通知を受け取るユーザー */
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: notificationType("type").notNull(),
+    actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+    postId: uuid("post_id").references(() => posts.id, { onDelete: "cascade" }),
+    commentId: uuid("comment_id").references(() => comments.id, { onDelete: "cascade" }),
+    data: jsonb("data").$type<Record<string, unknown>>().notNull().default({}),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("notifications_user_idx").on(t.userId, t.createdAt)],
+);
+
+export type CommentRow = typeof comments.$inferSelect;
+export type NotificationRow = typeof notifications.$inferSelect;

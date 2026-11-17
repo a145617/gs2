@@ -13,6 +13,8 @@ import { Sheet } from "@/components/ui/sheet";
 import { PageSpinner } from "@/components/ui/spinner";
 import { useToast } from "@/components/ui/toast";
 import { Caption, LockedImage, MetaLine, PostAuthorRow, TagList } from "@/components/post/post-parts";
+import { PostActions } from "@/components/post/post-actions";
+import { Comments } from "@/components/post/comments";
 import { api, ApiError } from "@/lib/client/api";
 import { formatDayKey } from "@/lib/time";
 import type { PostDTO } from "@/lib/types";
@@ -71,6 +73,7 @@ export function PostPage() {
         )}
         {!post.locked && (
           <div className="flex flex-col gap-3 px-2 pb-2">
+            <PostActions key={`${post.id}-${post.counts.likes}-${post.viewer.liked}`} post={post} />
             <h2 className="font-display text-xl font-bold text-ink" data-testid="post-title">
               {post.title}
             </h2>
@@ -87,6 +90,7 @@ export function PostPage() {
           </div>
         )}
       </Card>
+      <Comments post={post} />
       {post.viewer.isMine && (
         <Button variant="danger" icon={<Trash size={16} />} onClick={() => setConfirm(true)}>
           この投稿を削除

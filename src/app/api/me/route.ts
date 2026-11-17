@@ -8,6 +8,7 @@ import { deleteAccount, getUserById, toMe, updateProfile } from "@/server/servic
 import { accountDeleteSchema, profileUpdateSchema } from "@/lib/validation";
 import { env } from "@/server/env";
 import { now } from "@/server/clock";
+import { unreadCount } from "@/server/services/notifications";
 import type { MeResponse } from "@/lib/types";
 
 export const GET = route(async (req: NextRequest) => {
@@ -28,6 +29,7 @@ export const GET = route(async (req: NextRequest) => {
     debugMode: env.debugMode,
     serverNow: (await now()).toISOString(),
     impersonator,
+    unreadNotifications: await unreadCount(viewer.id),
   };
   return json(body);
 });

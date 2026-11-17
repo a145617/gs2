@@ -39,7 +39,7 @@ const iconLink =
 
 /** ログイン後の画面共通の枠（ヘッダー・本文・タブバー） */
 export function AppShell({ children }: { children: ReactNode }) {
-  const { me, unauthorized } = useMe();
+  const { me, unauthorized, unread } = useMe();
 
   return (
     <>
@@ -55,8 +55,20 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <ShieldCheck size={18} />
               </Link>
             )}
-            <Link href="/notifications" aria-label="お知らせ" className={iconLink}>
+            <Link
+              href="/notifications"
+              aria-label={unread > 0 ? `お知らせ（未読${unread}件）` : "お知らせ"}
+              className={`${iconLink} relative`}
+            >
               <Bell size={18} />
+              {unread > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white"
+                  data-testid="unread-badge"
+                >
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              )}
             </Link>
           </>
         }

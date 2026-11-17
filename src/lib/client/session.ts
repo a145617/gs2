@@ -15,6 +15,7 @@ export function useMe() {
     debugMode: data?.debugMode ?? false,
     serverNow: data?.serverNow ?? null,
     impersonator: data?.impersonator ?? null,
+    unread: data?.unreadNotifications ?? 0,
     isLoading,
     error,
     unauthorized: error?.status === 401,

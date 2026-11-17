@@ -29,12 +29,67 @@ export type MeResponse = {
   serverNow: string;
   /** デバッグのユーザー切り替え中なら、切り替え元のユーザー */
   impersonator: { id: string; handle: string; displayName: string } | null;
+  /** 未読のお知らせの数 */
+  unreadNotifications: number;
 };
 
 export type ProfileResponse = {
   user: PublicUser;
   isMe: boolean;
+  counts: { posts: number; followers: number; following: number };
+  /** 閲覧者がこのユーザーをフォローしているか */
+  following: boolean;
+  /** このユーザーが閲覧者をフォローしているか */
+  followsMe: boolean;
+  /** 閲覧者がこのユーザーをミュートしているか */
+  muted: boolean;
 };
+
+/** ユーザーの一覧（フォロワーなど） */
+export type UserListItem = Pick<PublicUser, "id" | "handle" | "displayName" | "avatarUrl" | "bio"> & {
+  following: boolean;
+};
+
+export type UserListPage = { items: UserListItem[]; nextCursor: string | null };
+
+/** コメント */
+export type CommentDTO = {
+  id: string;
+  postId: string;
+  author: PostAuthor;
+  body: string;
+  createdAt: string;
+  editedAt: string | null;
+  editedByAdmin: boolean;
+  status: "visible" | "hidden" | "deleted";
+  viewer: { isMine: boolean; canEdit: boolean; canDelete: boolean };
+};
+
+export type CommentPage = { items: CommentDTO[]; nextCursor: string | null; total: number };
+
+export type NotificationDTO = {
+  id: string;
+  type:
+    | "like"
+    | "comment"
+    | "follow"
+    | "warning"
+    | "post_edited"
+    | "post_removed"
+    | "comment_edited"
+    | "comment_removed"
+    | "event"
+    | "report_resolved";
+  actor: PostAuthor | null;
+  postId: string | null;
+  /** 投稿の小さな画像（あれば） */
+  postThumb: string | null;
+  data: Record<string, unknown>;
+  read: boolean;
+  createdAt: string;
+};
+
+export type NotificationPage = { items: NotificationDTO[]; nextCursor: string | null };
 
 /** お題 */
 export type ThemeDTO = {
