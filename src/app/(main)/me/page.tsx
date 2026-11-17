@@ -1,11 +1,12 @@
-import { PageHeader } from "@/components/shell/page-header";
-import { EmptyState } from "@/components/ui/empty";
+"use client";
 
-export default function Page() {
-  return (
-    <>
-      <PageHeader title="マイページ" back={false} />
-      <EmptyState title="準備中です">この画面は次の機能ブランチで実装します。</EmptyState>
-    </>
-  );
+import { ProfileView } from "@/components/profile/profile-view";
+import { PageSpinner } from "@/components/ui/spinner";
+import { useMe } from "@/lib/client/session";
+
+/** マイページ（自分のプロフィール） */
+export default function MyPage() {
+  const { me } = useMe();
+  if (!me) return <PageSpinner />;
+  return <ProfileView handle={me.handle} />;
 }
