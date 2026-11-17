@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, inArray, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import { db } from "../db/client";
-import { hashtags, postHashtags, posts, themes, users, type PostRow } from "../db/schema";
+import { bookmarks, hashtags, likes, postHashtags, posts, themes, users, type PostRow } from "../db/schema";
 import { conflict, forbidden, notFound, tooMany, badRequest } from "../http/respond";
 import { deleteObjects, mediaUrl, putObject } from "../storage";
 import { processPostImage, type ProcessedPostImage } from "../images";
@@ -120,8 +120,8 @@ export async function hydratePosts(
       .innerJoin(hashtags, eq(hashtags.id, postHashtags.hashtagId))
       .where(inArray(postHashtags.postId, ids)),
     themeIds.length ? db.select().from(themes).where(inArray(themes.id, themeIds)) : Promise.resolve([]),
-    extras.liked ?? loadViewerSet(),
-    extras.bookmarked ?? loadViewerSet(),
+    extras.liked ?? loadViewerSet("likes", viewer.id, ids),
+    extras.bookmarked ?? loadViewerSet("bookmarks", viewer.id, ids),
   ]);
 
   const authors = new Map(authorRows.map((a) => [a.id, a]));
@@ -183,15 +183,21 @@ export async function hydratePosts(
         liked: liked.has(r.id),
         bookmarked: bookmarked.has(r.id),
         isMine,
-        canEdit: isMine || viewer.role === "admin",
+        canEdit: isMine,
       },
     };
   });
 }
 
-/** いいね・ブックマーク済みの投稿ID（いいね・ブックマーク機能で実装） */
-async function loadViewerSet(): Promise<Set<string>> {
-  return new Set();
+/** 閲覧者がいいね・ブックマーク済みの投稿ID */
+async function loadViewerSet(table: "likes" | "bookmarks", userId: string, postIds: string[]): Promise<Set<string>> {
+  if (postIds.length === 0) return new Set();
+  const t = table === "likes" ? likes : bookmarks;
+  const rows = await db
+    .select({ postId: t.postId })
+    .from(t)
+    .where(and(eq(t.userId, userId), inArray(t.postId, postIds)));
+  return new Set(rows.map((r) => r.postId));
 }
 
 // ------------------------------------------------------------ ハッシュタグ
@@ -407,6 +413,20 @@ export function listThemePosts(viewer: ViewerCtx, themeId: string, at: Date, cur
 
 export function listEventPosts(viewer: ViewerCtx, eventId: string, at: Date, cursor: string | null) {
   return pageOf(viewer, at, eq(posts.eventId, eventId), cursor);
+}
+
+/** ハッシュタグの付いた投稿 */
+export function listTagPosts(viewer: ViewerCtx, tagName: string, at: Date, cursor: string | null) {
+  const ids = db
+    .select({ id: postHashtags.postId })
+    .from(postHashtags)
+    .innerJoin(hashtags, eq(hashtags.id, postHashtags.hashtagId))
+    .where(eq(hashtags.name, tagName));
+  return pageOf(viewer, at, inArray(posts.id, ids), cursor);
+}
+
+export async function getHashtag(name: string) {
+  return (await db.query.hashtags.findFirst({ where: eq(hashtags.name, name) })) ?? null;
 }
 
 export function assertTitle(title: string) {
