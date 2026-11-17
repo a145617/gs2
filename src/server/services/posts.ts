@@ -9,6 +9,7 @@ import { randomId } from "../auth/tokens";
 import { getSetting, SETTING_KEYS } from "../settings";
 import { getCurrentTheme, toThemeDTO } from "./themes";
 import { collectTags } from "@/lib/hashtags";
+import { buildSearchText } from "@/lib/search";
 import type { PhotoMeta } from "@/lib/photo-meta";
 import type { PostDTO, PostPage } from "@/lib/types";
 
@@ -303,6 +304,7 @@ export async function insertPost(
           placeholder: processed.placeholder,
           colors: processed.colors,
           meta: input.meta,
+          searchText: buildSearchText(input.title, input.caption, tags),
           createdAt: at,
           updatedAt: at,
         })
@@ -351,19 +353,26 @@ export async function updatePost(
   else values.editedByAdminAt = at;
   const updated = await db.transaction(async (tx) => {
     const [u] = await tx.update(posts).set(values).where(eq(posts.id, id)).returning();
+    let tags = await currentTagNames(id, tx);
     if (patch.tags !== undefined || patch.caption !== undefined) {
-      const current = patch.tags ?? (await currentTagNames(id));
+      tags = collectTags(patch.tags ?? tags, patch.caption ?? u.caption);
       await detachTags(tx, id);
-      await attachTags(tx, id, collectTags(current, patch.caption ?? u.caption));
+      await attachTags(tx, id, tags);
     }
-    return u;
+    // 検索用のテキストも更新する
+    const [withSearch] = await tx
+      .update(posts)
+      .set({ searchText: buildSearchText(u.title, u.caption, tags) })
+      .where(eq(posts.id, id))
+      .returning();
+    return withSearch;
   });
   const [dto] = await hydratePosts([updated], viewer, at);
   return dto;
 }
 
-async function currentTagNames(postId: string): Promise<string[]> {
-  const rows = await db
+async function currentTagNames(postId: string, tx: Pick<typeof db, "select"> = db): Promise<string[]> {
+  const rows = await tx
     .select({ name: hashtags.name })
     .from(postHashtags)
     .innerJoin(hashtags, eq(hashtags.id, postHashtags.hashtagId))
@@ -396,7 +405,7 @@ export function notMutedBy(viewerId: string): SQL {
   );
 }
 
-async function pageOf(
+export async function listPostsWhere(
   viewer: ViewerCtx,
   at: Date,
   where: SQL | undefined,
@@ -420,15 +429,15 @@ async function pageOf(
 
 /** ユーザーの投稿（プロフィール。ミュート中かどうかはプロフィール側で扱う） */
 export function listUserPosts(viewer: ViewerCtx, userId: string, at: Date, cursor: string | null) {
-  return pageOf(viewer, at, eq(posts.userId, userId), cursor, { excludeMuted: false });
+  return listPostsWhere(viewer, at, eq(posts.userId, userId), cursor, { excludeMuted: false });
 }
 
 export function listThemePosts(viewer: ViewerCtx, themeId: string, at: Date, cursor: string | null) {
-  return pageOf(viewer, at, eq(posts.themeId, themeId), cursor);
+  return listPostsWhere(viewer, at, eq(posts.themeId, themeId), cursor);
 }
 
 export function listEventPosts(viewer: ViewerCtx, eventId: string, at: Date, cursor: string | null) {
-  return pageOf(viewer, at, eq(posts.eventId, eventId), cursor);
+  return listPostsWhere(viewer, at, eq(posts.eventId, eventId), cursor);
 }
 
 /** ハッシュタグの付いた投稿 */
@@ -438,7 +447,7 @@ export function listTagPosts(viewer: ViewerCtx, tagName: string, at: Date, curso
     .from(postHashtags)
     .innerJoin(hashtags, eq(hashtags.id, postHashtags.hashtagId))
     .where(eq(hashtags.name, tagName));
-  return pageOf(viewer, at, inArray(posts.id, ids), cursor);
+  return listPostsWhere(viewer, at, inArray(posts.id, ids), cursor);
 }
 
 export async function getHashtag(name: string) {

@@ -50,6 +50,13 @@
       "when": 1794954703149,
       "tag": "0006_feed",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794955315012,
+      "tag": "0007_search",
+      "breakpoints": true
     }
   ]
 }
