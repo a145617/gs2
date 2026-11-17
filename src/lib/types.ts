@@ -160,3 +160,31 @@ export type PostDTO = {
 };
 
 export type PostPage = { items: PostDTO[]; nextCursor: string | null };
+
+/** フィードの並び順の内訳（デバッグ表示用） */
+export type FeedItemDebug = {
+  section: "following" | "discover";
+  /** その時点での人気（閲覧数・いいね等、0〜1に正規化） */
+  popularity: number;
+  /** 好みとの近さ（ハッシュタグ・作者・表示テンプレート・色合い） */
+  preference: { tag: number; author: number; template: number; color: number; total: number };
+  /** 今日のお題の投稿への加点 */
+  themeBonus: number;
+  /** 閲覧済みか（閲覧済みは出にくくする） */
+  seen: boolean;
+  /** 最終的な重み（大きいほど上に来やすい） */
+  weight: number;
+  /** 重み付きランダムで使った値（小さいほど上） */
+  randomKey: number;
+};
+
+export type FeedPost = PostDTO & { feedSection: "following" | "discover"; feedDebug?: FeedItemDebug };
+
+export type FeedPage = {
+  items: FeedPost[];
+  nextCursor: string | null;
+  /** フィード全体の件数 */
+  total: number;
+  /** このページのうち、今日のお題に投稿するまで見られない投稿の数 */
+  lockedCount: number;
+};
