@@ -1,6 +1,7 @@
 export {};
 
 // 初期データを投入する（何度実行しても安全）: npm run seed
+//  - お題の候補（毎朝5時に、この中から自動で選ばれる）
 //  - 初期管理者（ADMIN_EMAIL / ADMIN_PASSWORD）
 try {
   process.loadEnvFile(".env.local");
@@ -9,9 +10,12 @@ try {
 }
 
 const { ensureAdminFromEnv } = await import("../src/server/services/users");
+const { seedThemePool } = await import("../src/server/services/themes");
 const { closeDb } = await import("../src/server/db/client");
 
 try {
+  const added = await seedThemePool();
+  console.log(`[seed] お題の候補を ${added} 件追加しました`);
   const admin = await ensureAdminFromEnv();
   console.log(
     admin

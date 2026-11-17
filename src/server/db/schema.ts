@@ -1,4 +1,5 @@
 import { boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { TEMPLATE_KEYS } from "../../lib/templates";
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 const updatedAt = () => timestamp("updated_at", { withTimezone: true }).notNull().defaultNow();
@@ -69,3 +70,47 @@ export const rateLimits = pgTable("rate_limits", {
 
 export type UserRow = typeof users.$inferSelect;
 export type SessionRow = typeof sessions.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// お題（毎朝5時に切り替わる）
+// ---------------------------------------------------------------------------
+export const themeTemplate = pgEnum("theme_template", TEMPLATE_KEYS);
+export const themeSource = pgEnum("theme_source", ["auto", "admin", "debug"]);
+
+/** 自動で選ばれるお題の候補 */
+export const themePool = pgTable("theme_pool", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: text("title").notNull().unique(),
+  description: text("description").notNull().default(""),
+  template: themeTemplate("template").notNull(),
+  accent: text("accent").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  timesUsed: integer("times_used").notNull().default(0),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+/** 実際に出題されたお題（自動・管理者・デバッグ） */
+export const themes = pgTable(
+  "themes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    template: themeTemplate("template").notNull(),
+    accent: text("accent").notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    /** 自動出題のお題のみ: お題の日（YYYY-MM-DD）。1日1つに限定する */
+    dayKey: text("day_key").unique(),
+    source: themeSource("source").notNull(),
+    poolId: uuid("pool_id").references(() => themePool.id, { onDelete: "set null" }),
+    createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("themes_starts_idx").on(t.startsAt), index("themes_ends_idx").on(t.endsAt)],
+);
+
+export type ThemeRow = typeof themes.$inferSelect;
+export type ThemePoolRow = typeof themePool.$inferSelect;

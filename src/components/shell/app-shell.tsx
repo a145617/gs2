@@ -8,6 +8,18 @@ import { Bell, ShieldCheck } from "lucide-react";
 import { Header } from "./header";
 import { TabBar } from "./tab-bar";
 import { useMe } from "@/lib/client/session";
+import { useCurrentTheme } from "@/lib/client/theme";
+import { applyAccent } from "@/lib/client/prefs";
+
+/** 今日のお題の色を、UI全体のアクセント色にする（毎日変わる） */
+function ThemeAccentSync({ enabled }: { enabled: boolean }) {
+  const { data } = useCurrentTheme();
+  const accent = enabled ? data?.theme.accent : undefined;
+  useEffect(() => {
+    if (accent) applyAccent(accent);
+  }, [accent]);
+  return null;
+}
 
 const iconLink =
   "neu neu-sm neu-convex neu-press flex h-9 w-9 items-center justify-center rounded-full text-ink-2";
@@ -28,6 +40,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <>
+      {me && <ThemeAccentSync enabled />}
       <Header
         right={
           <>
