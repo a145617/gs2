@@ -1,11 +1,13 @@
-import { PageHeader } from "@/components/shell/page-header";
-import { EmptyState } from "@/components/ui/empty";
+"use client";
 
-export default function Page() {
+import { PageHeader } from "@/components/shell/page-header";
+import { ThemeArchive } from "@/components/theme/theme-archive";
+
+export default function ExplorePage() {
   return (
-    <>
+    <div className="flex flex-col gap-6 animate-fade-up">
       <PageHeader title="さがす" back={false} />
-      <EmptyState title="準備中です">この画面は次の機能ブランチで実装します。</EmptyState>
-    </>
+      <ThemeArchive />
+    </div>
   );
 }
