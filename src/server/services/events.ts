@@ -476,30 +476,31 @@ export async function createEventPost(
     throw conflict("あなたの色のマスはすべて埋まりました。新しい色を割り当てたので、もう一度撮ってみてください", "color_full");
   }
 
-  // すべてのマスが埋まったら完成
+  const completed = await completeIfFilled(ev, at);
+  const [post] = await hydratePosts([row], viewer, at);
+  return { post, cellIndex: claimed[0].cell_index, coverage, completed };
+}
+
+/** すべてのマスが埋まっていたら完成にして、参加者全員に知らせる（完成させたのがこの呼び出しなら true） */
+export async function completeIfFilled(ev: EventRow, at: Date): Promise<boolean> {
   const [{ remaining }] = await db
     .select({ remaining: sql<number>`count(*)::int` })
     .from(eventCells)
     .where(and(eq(eventCells.eventId, ev.id), isNull(eventCells.postId)));
-  let completed = false;
-  if (remaining === 0) {
-    const done = await db
-      .update(events)
-      .set({ completedAt: at })
-      .where(and(eq(events.id, ev.id), isNull(events.completedAt)))
-      .returning({ id: events.id });
-    completed = done.length > 0;
-    if (completed) {
-      const ps = await db.select({ id: eventParticipants.userId }).from(eventParticipants).where(eq(eventParticipants.eventId, ev.id));
-      await notifyUsers(
-        ps.map((p) => p.id),
-        { title: ev.title, eventId: ev.id, message: `イベント「${ev.title}」の絵が完成しました！ご協力ありがとうございました` },
-        at,
-      );
-    }
-  }
-  const [post] = await hydratePosts([row], viewer, at);
-  return { post, cellIndex: claimed[0].cell_index, coverage, completed };
+  if (remaining > 0) return false;
+  const done = await db
+    .update(events)
+    .set({ completedAt: at })
+    .where(and(eq(events.id, ev.id), isNull(events.completedAt)))
+    .returning({ id: events.id });
+  if (done.length === 0) return false;
+  const ps = await db.select({ id: eventParticipants.userId }).from(eventParticipants).where(eq(eventParticipants.eventId, ev.id));
+  await notifyUsers(
+    ps.map((p) => p.id),
+    { title: ev.title, eventId: ev.id, message: `イベント「${ev.title}」の絵が完成しました！ご協力ありがとうございました` },
+    at,
+  );
+  return true;
 }
 
 /** 管理者・デバッグ: 今すぐ終了する */

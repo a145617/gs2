@@ -1,6 +1,18 @@
 import { and, desc, eq, ilike, inArray, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import { db } from "../db/client";
-import { auditLogs, comments, posts, reports, users, warnings, type UserRow } from "../db/schema";
+import {
+  auditLogs,
+  bookmarks,
+  comments,
+  follows,
+  likes,
+  notifications,
+  posts,
+  reports,
+  users,
+  warnings,
+  type UserRow,
+} from "../db/schema";
 import { badRequest, notFound } from "../http/respond";
 import { mediaUrl } from "../storage";
 import { notify } from "./notifications";
@@ -252,21 +264,44 @@ export async function adminDeleteUser(admin: ViewerCtx, userId: string, reason: 
   if (userId === admin.id) throw badRequest("自分自身のアカウントは管理画面から削除できません");
   const u = await db.query.users.findFirst({ where: eq(users.id, userId) });
   if (!u || u.status === "deleted") throw notFound("ユーザーが見つかりませんでした");
+  const removed = await purgeUserContent(userId);
+  await deleteAccount(userId);
+  await audit(admin.id, "user.delete", "user", userId, { reason, handle: u.handle, displayName: u.displayName, posts: removed.posts });
+}
+
+/**
+ * アカウントの削除に伴って、その人の投稿・コメント・いいね・ブックマーク・フォローを片付け、
+ * ほかの投稿の件数（コメント数・いいね数など）を合わせる。（管理者による削除・デバッグ用データの削除で使う）
+ */
+export async function purgeUserContent(userId: string): Promise<{ posts: number }> {
   const userPosts = await db
     .select({ id: posts.id })
     .from(posts)
     .where(and(eq(posts.userId, userId), ne(posts.status, "deleted")));
-  // 1件ずつ削除してハッシュタグの件数や画像も正しく片付ける
-  for (const p of userPosts) await deletePost(admin, p.id, { asAdmin: true });
-  // 他の人の投稿に付けたコメントを消し、コメント数を合わせる
+  // 1件ずつ（本人の操作として）削除し、ハッシュタグの件数や画像も正しく片付ける
+  const owner: ViewerCtx = { id: userId, role: "user" };
+  for (const p of userPosts) await deletePost(owner, p.id);
+  // 他の人の投稿に付けたコメント・いいね・ブックマークを消し、件数を合わせる
   await db.execute(sql`
     UPDATE ${posts} SET comment_count = greatest(${posts.commentCount} - sub.n, 0)
     FROM (SELECT post_id, count(*)::int AS n FROM ${comments} WHERE user_id = ${userId} AND status = 'visible' GROUP BY post_id) sub
     WHERE ${posts.id} = sub.post_id
   `);
   await db.update(comments).set({ status: "deleted", updatedAt: new Date() }).where(eq(comments.userId, userId));
-  await deleteAccount(userId);
-  await audit(admin.id, "user.delete", "user", userId, { reason, handle: u.handle, displayName: u.displayName, posts: userPosts.length });
+  await db.execute(sql`
+    UPDATE ${posts} SET like_count = greatest(${posts.likeCount} - 1, 0)
+    WHERE ${posts.id} IN (SELECT post_id FROM ${likes} WHERE user_id = ${userId})
+  `);
+  await db.delete(likes).where(eq(likes.userId, userId));
+  await db.execute(sql`
+    UPDATE ${posts} SET bookmark_count = greatest(${posts.bookmarkCount} - 1, 0)
+    WHERE ${posts.id} IN (SELECT post_id FROM ${bookmarks} WHERE user_id = ${userId})
+  `);
+  await db.delete(bookmarks).where(eq(bookmarks.userId, userId));
+  await db.delete(follows).where(or(eq(follows.followerId, userId), eq(follows.followeeId, userId)));
+  // その人の操作で届いたお知らせ（いいね・コメント・フォロー）も消す
+  await db.delete(notifications).where(eq(notifications.actorId, userId));
+  return { posts: userPosts.length };
 }
 
 export async function setUserRole(admin: ViewerCtx, userId: string, role: "user" | "admin") {
