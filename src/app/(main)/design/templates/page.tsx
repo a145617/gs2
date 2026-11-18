@@ -10,6 +10,7 @@ export default function TemplatesPage() {
   return (
     <div className="flex flex-col gap-8 animate-fade-up">
       <PageHeader title="表示テンプレート" subtitle="お題ごとに、投稿の見せ方が変わります" />
+      <p className="-mt-4 px-1 text-xs text-ink-3">見本の写真: 「海に沈む夕日」Sebastien Gabriel（Unsplash）</p>
       {TEMPLATE_KEYS.map((key) => {
         const examples = DEFAULT_THEME_POOL.filter((t) => t.template === key).map((t) => t.title);
         const accent = DEFAULT_THEME_POOL.find((t) => t.template === key)?.accent ?? TEMPLATES[key].accent;
@@ -23,11 +24,11 @@ export default function TemplatesPage() {
             <ThemeStage
               template={key}
               accent={accent}
-              src="/samples/scene.jpg"
+              src="/samples/sunset-sea.jpg"
               width={1200}
-              height={900}
-              title="夕方の海辺"
-              authorName="ひとこま"
+              height={800}
+              title="海に沈む夕日"
+              authorName="Sebastien Gabriel"
               dayLabel="11月18日"
               variant="detail"
             />

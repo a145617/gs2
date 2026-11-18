@@ -5,7 +5,8 @@ import { useMe } from "./session";
 import { EXPOSURE_UNIT_PER_SECOND, type CameraCapabilities } from "./camera";
 
 // デバッグモード用の「疑似カメラ」。
-// カメラの無いPCや自動テストでも撮影の流れを確認できるよう、アニメーションする風景の映像を流す。
+// カメラの無いPCや自動テストでも撮影の流れを確認できるよう、Unsplash の写真（assets/demo-photos）を
+// ゆっくり動かした映像をカメラの代わりに流す。
 // 「疑似カメラ（手動設定あり）」では、シャッタースピード・ISOに対応した端末のふりをする。
 
 export type DebugCameraMode = "off" | "fake" | "fake-manual";
@@ -50,7 +51,19 @@ export function fakeCameraSupported(): boolean {
   return typeof HTMLCanvasElement !== "undefined" && typeof HTMLCanvasElement.prototype.captureStream === "function";
 }
 
-function createFakeStream(): MediaStream {
+/** 疑似カメラに映す写真を読み込む（color があればその色に近い写真） */
+async function loadScene(color: string | null): Promise<HTMLImageElement | null> {
+  try {
+    const img = new Image();
+    img.src = `/api/debug/demo-photo?${color ? `color=${encodeURIComponent(color)}&` : ""}t=${Date.now()}`;
+    await img.decode();
+    return img;
+  } catch {
+    return null;
+  }
+}
+
+async function createFakeStream(): Promise<MediaStream> {
   if (!fakeCameraSupported()) throw "unsupported";
   const canvas = document.createElement("canvas");
   canvas.width = 1280;
@@ -59,44 +72,37 @@ function createFakeStream(): MediaStream {
   let exposure = 1;
   let running = true;
   const t0 = performance.now();
+  // 最初の写真を読み込んでから映し始める（イベントの撮影では担当の色に近い写真）
+  let sceneFor = sceneColor;
+  let scene = await loadScene(sceneFor);
 
   const draw = () => {
     if (!running) return;
     const t = (performance.now() - t0) / 1000;
     const w = canvas.width;
     const h = canvas.height;
-    const sky = ctx.createLinearGradient(0, 0, 0, h);
-    sky.addColorStop(0, "#2f6fd6");
-    sky.addColorStop(0.65, "#a9d4ff");
-    sky.addColorStop(1, "#f5d7a8");
-    ctx.fillStyle = sky;
+    if (sceneColor !== sceneFor) {
+      // 映す色が変わった（イベントの担当の色が分かった）ら、その色に近い写真に替える
+      const want = sceneColor;
+      sceneFor = want;
+      void loadScene(want).then((img) => {
+        if (img && sceneFor === want) scene = img;
+      });
+    }
+    ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = "#fff4c4";
-    ctx.beginPath();
-    ctx.arc(w * 0.75, h * 0.25 + Math.sin(t / 3) * 20, 70, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
-    for (let i = 0; i < 4; i++) {
-      const x = ((t * 40 + i * 360) % (w + 400)) - 200;
-      ctx.beginPath();
-      ctx.ellipse(x, h * (0.18 + i * 0.1), 160, 42, 0, 0, Math.PI * 2);
-      ctx.fill();
+    if (scene) {
+      // 手持ちのカメラのように、写真をゆっくり拡大・移動させる
+      const zoom = 1.08 + Math.sin(t / 5) * 0.04;
+      const s = Math.max(w / scene.naturalWidth, h / scene.naturalHeight) * zoom;
+      const dw = scene.naturalWidth * s;
+      const dh = scene.naturalHeight * s;
+      ctx.drawImage(scene, (w - dw) / 2 + Math.sin(t / 7) * w * 0.02, (h - dh) / 2 + Math.cos(t / 9) * h * 0.02, dw, dh);
     }
-    if (sceneColor) {
-      ctx.fillStyle = sceneColor;
-      ctx.beginPath();
-      ctx.ellipse(w / 2, h * 0.62, w * 0.42, h * 0.33, Math.sin(t) * 0.1, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.fillStyle = "#33463a";
-    ctx.fillRect(0, h * 0.86, w, h * 0.14);
     if (exposure !== 1) {
       ctx.fillStyle = exposure > 1 ? `rgba(255,255,255,${Math.min(0.75, (exposure - 1) * 0.25)})` : `rgba(0,0,0,${Math.min(0.85, 1 - exposure)})`;
       ctx.fillRect(0, 0, w, h);
     }
-    ctx.fillStyle = "rgba(0,0,0,0.45)";
-    ctx.font = "bold 28px sans-serif";
-    ctx.fillText("疑似カメラ（デバッグ）", 28, h - 30);
     requestAnimationFrame(draw);
   };
   draw();

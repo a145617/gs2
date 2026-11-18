@@ -1,9 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
+import path from "node:path";
 import sharp from "sharp";
 import { open, signup } from "./helpers";
 
-async function solidJpeg(hex: string) {
-  return sharp({ create: { width: 600, height: 450, channels: 3, background: hex } }).jpeg({ quality: 90 }).toBuffer();
+// 撮影に使う写真（Unsplash の写真、assets/demo-photos）
+const STARRY_SKY = "Cq5NaI0yKBE"; // 満天の星（ほぼ黒）
+const SUNFLOWER = "5lRxNLHfZOY"; // ひまわり一輪（黄・白）
+
+async function photoJpeg(id: string) {
+  const file = path.join(import.meta.dirname, "..", "assets", "demo-photos", `photo-${id}.webp`);
+  return sharp(file).resize(900, 900, { fit: "inside" }).jpeg({ quality: 88 }).toBuffer();
 }
 
 async function startEvent(page: Page, palette: { hex: string; name: string }[], size = 2) {
@@ -14,10 +20,10 @@ async function startEvent(page: Page, palette: { hex: string; name: string }[], 
   return (await res.json()).event as { id: string };
 }
 
-async function shootColor(page: Page, hex: string) {
+async function shootPhoto(page: Page, id: string) {
   await open(page, "/event/camera");
   await expect(page.getByTestId("event-color-chip")).toBeVisible();
-  await page.getByTestId("library-input").setInputFiles({ name: "color.jpg", mimeType: "image/jpeg", buffer: await solidJpeg(hex) });
+  await page.getByTestId("library-input").setInputFiles({ name: `${id}.jpg`, mimeType: "image/jpeg", buffer: await photoJpeg(id) });
   await page.getByTestId("develop-next").click();
   await expect(page.getByRole("heading", { name: "投稿の内容" })).toBeVisible();
   await page.getByTestId("submit-post").click();
@@ -34,13 +40,13 @@ test.describe("イベント（色を集めてピクセルアートを完成さ�
     await expect(page.getByTestId("event-progress")).toHaveText("0 / 4");
     await expect(page.getByTestId("mosaic")).toBeVisible();
 
-    // 違う色の写真は受け付けない
-    await shootColor(page, "#f5d742");
+    // 違う色の写真（ひまわり）は受け付けない
+    await shootPhoto(page, SUNFLOWER);
     await expect(page.getByText(/「夜の黒」が足りません/)).toBeVisible();
 
-    // 担当の色（黒＝夜空のような写真）なら1マス埋まる
+    // 担当の色（黒）が多い写真（星空）なら1マス埋まる
     for (let i = 1; i <= 4; i++) {
-      await shootColor(page, "#0b0c12");
+      await shootPhoto(page, STARRY_SKY);
       await expect(page).toHaveURL(/\/event$/, { timeout: 30_000 });
       await expect(page.getByTestId("event-progress")).toHaveText(`${i} / 4`);
     }

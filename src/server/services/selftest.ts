@@ -6,6 +6,7 @@ import { getClockOffsetMs, now } from "../clock";
 import { hashPassword, verifyPassword } from "../auth/password";
 import { randomId } from "../auth/tokens";
 import { processPostImage } from "../images";
+import { DEMO_PHOTOS, demoPhotoById, requireDemoPhoto } from "../debug/demo-photos";
 import { deleteObject, getObject, putObject } from "../storage";
 import { getSetting, SETTING_KEYS } from "../settings";
 import { DEFAULT_AUTO_HIDE } from "./moderation";
@@ -70,17 +71,21 @@ const CHECKS: Check[] = [
     id: "image",
     name: "写真の処理（向きの補正・3サイズのWebP・位置情報などのメタデータの削除）",
     run: async () => {
-      const jpeg = await sharp({ create: { width: 1600, height: 1200, channels: 3, background: "#4a8fd8" } })
+      // Unsplash の写真に撮影情報（EXIF）を付けて、投稿と同じ処理にかける
+      const photo = demoPhotoById("gJILnne_HFg") ?? DEMO_PHOTOS[0];
+      const source = await requireDemoPhoto(photo);
+      const size = await sharp(source).metadata();
+      const jpeg = await sharp(source)
         .withExif({ IFD0: { Make: "SelfTest", Model: "Cam", Software: "secret" } })
         .jpeg()
         .toBuffer();
       const p = await processPostImage(jpeg);
       const meta = await sharp(p.lg).metadata();
       assert(meta.format === "webp", "WebP に変換されていません");
-      assert(p.width === 1600 && p.height === 1200, `大きさが違います（${p.width}×${p.height}）`);
+      assert(p.width === size.width && p.height === size.height, `大きさが違います（${p.width}×${p.height}）`);
       assert(!meta.exif, "撮影情報（EXIF）が残っています");
       assert(p.tile.startsWith("data:image/webp"), "イベント用の小さな画像が作られていません");
-      return `lg ${p.lg.length}B / md ${p.md.length}B / sm ${p.sm.length}B、EXIFなし、代表色 ${p.colors.dominant.join(" ")}`;
+      return `「${photo.title}」: lg ${p.lg.length}B / md ${p.md.length}B / sm ${p.sm.length}B、EXIFなし、代表色 ${p.colors.dominant.join(" ")}`;
     },
   },
   {
@@ -125,17 +130,20 @@ const CHECKS: Check[] = [
     id: "color",
     name: "イベントの色の判定（指定の色が画面に多く写っているか）",
     run: async () => {
-      const red = Buffer.alloc(64 * 64 * 3);
-      for (let i = 0; i < red.length; i += 3) [red[i], red[i + 1], red[i + 2]] = [214, 69, 69];
-      const hit = colorCoverage(red, 3, "#d64545");
-      const miss = colorCoverage(red, 3, "#2f6fd6");
-      assert(hit > 0.9, `同じ色なのに割合が ${hit.toFixed(2)} です`);
-      assert(miss < 0.05, `違う色なのに割合が ${miss.toFixed(2)} です`);
+      // 赤い花の写真と星空の写真（Unsplash）で、指定の色の割合を測る
+      const analysis = async (id: string) => (await processPostImage(await requireDemoPhoto(demoPhotoById(id) ?? DEMO_PHOTOS[0]))).analysis.data;
+      const [red, night] = await Promise.all([analysis("TapDWPQUsQY"), analysis("Cq5NaI0yKBE")]);
+      const hit = colorCoverage(red, 3, "#d64545", 22);
+      const miss = colorCoverage(night, 3, "#d64545", 22);
+      const dark = colorCoverage(night, 3, "#12131c", 22);
+      assert(hit > 0.8, `赤い花の写真なのに赤の割合が ${hit.toFixed(2)} です`);
+      assert(miss < 0.05, `星空の写真なのに赤の割合が ${miss.toFixed(2)} です`);
+      assert(dark > 0.8, `星空の写真なのに黒の割合が ${dark.toFixed(2)} です`);
       for (const k of PRESET_KEYS) {
         const art = PRESETS[k].build(12, 12);
         assert(art.cells.length === 144 && art.cells.every((c) => c >= 0 && c < art.palette.length), `絵「${k}」のデータが正しくありません`);
       }
-      return `赤の写真 × 赤: ${(hit * 100).toFixed(0)}% / × 青: ${(miss * 100).toFixed(0)}%、絵 ${PRESET_KEYS.length}種類`;
+      return `赤い花の写真 × 赤: ${(hit * 100).toFixed(0)}% / 星空の写真 × 赤: ${(miss * 100).toFixed(0)}%・× 黒: ${(dark * 100).toFixed(0)}%、絵 ${PRESET_KEYS.length}種類`;
     },
   },
   {

@@ -1,5 +1,4 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import sharp from "sharp";
 import { closeDb, db } from "@/server/db/client";
 import { events } from "@/server/db/schema";
 import {
@@ -155,9 +154,8 @@ describe("イベント（仕様: 特定の色を指定され、その色を多�
   it("夜空（黒）の写真で黒のマスを埋められる（例: 黒が指定されたので夜空を撮る）", async () => {
     const ev = await makeEvent({ w: 2, h: 2, palette: [{ hex: "#12131c", name: "夜の黒" }], cells: [0, 0, 0, 0] });
     const u = await makeUser("U");
-    const night = await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="#07080c"/><circle cx="80" cy="60" r="3" fill="#fff"/><circle cx="300" cy="40" r="2" fill="#fff"/><rect y="220" width="400" height="80" fill="#1a1d28"/></svg>`))
-      .jpeg()
-      .toBuffer();
+    // Unsplash の星空の写真
+    const night = await makeImage("#12131c", 400, 300);
     const res = await createEventPost(u.viewer, ev.id, { title: "夜空", caption: "", tags: "", meta }, night, AT);
     expect(res.coverage).toBeGreaterThan(0.8);
   });
