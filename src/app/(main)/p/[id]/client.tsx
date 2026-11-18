@@ -4,9 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
-import { Trash } from "lucide-react";
+import { ShieldCheck, Trash } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
-import { Button } from "@/components/ui/button";
+import { PostAdminSheet } from "@/components/admin/post-admin-sheet";
+import { Button, IconButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty";
 import { Sheet } from "@/components/ui/sheet";
@@ -19,6 +20,7 @@ import { ContentMenu } from "@/components/moderation/content-menu";
 import { ThemeStage } from "@/components/stage/theme-stage";
 import { EventStage } from "@/components/event/event-stage";
 import { api, ApiError } from "@/lib/client/api";
+import { useMe } from "@/lib/client/session";
 import { formatDayKey } from "@/lib/time";
 import type { PostDTO } from "@/lib/types";
 
@@ -28,9 +30,12 @@ export function PostPage() {
   const { data, error, isLoading } = useSWR<{ post: PostDTO }, ApiError>(`/api/posts/${id}`);
   const [confirm, setConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
   const router = useRouter();
   const toast = useToast();
   const { mutate } = useSWRConfig();
+  const { me } = useMe();
+  const isAdmin = me?.role === "admin";
 
   if (isLoading) return <PageSpinner />;
   if (error || !data) return <EmptyState title={error?.status === 404 ? "投稿が見つかりませんでした" : "読み込めませんでした"} />;
@@ -57,22 +62,42 @@ export function PostPage() {
         subtitle={post.theme ? `${formatDayKey(post.theme.dayKey)}のお題「${post.theme.title}」` : undefined}
         right={
           !post.viewer.isMine ? (
-            <ContentMenu
-              targetType="post"
-              targetId={post.id}
-              label="この投稿のメニュー"
-              user={{ handle: post.author.handle, displayName: post.author.displayName }}
-              onReported={(hidden) => {
-                if (hidden) toast.show("通報が集まったため、この投稿は確認が済むまで非表示になりました");
-                void mutate(`/api/posts/${post.id}`);
-              }}
-              onMuteChange={(muted) => {
-                if (muted) router.back();
-              }}
-            />
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <IconButton label="投稿を管理" onClick={() => setAdminOpen(true)} data-testid="admin-post-menu">
+                  <ShieldCheck size={18} />
+                </IconButton>
+              )}
+              <ContentMenu
+                targetType="post"
+                targetId={post.id}
+                label="この投稿のメニュー"
+                user={{ handle: post.author.handle, displayName: post.author.displayName }}
+                onReported={(hidden) => {
+                  if (hidden) toast.show("通報が集まったため、この投稿は確認が済むまで非表示になりました");
+                  void mutate(`/api/posts/${post.id}`);
+                }}
+                onMuteChange={(muted) => {
+                  if (muted) router.back();
+                }}
+              />
+            </div>
           ) : undefined
         }
       />
+      {isAdmin && (
+        <PostAdminSheet
+          postId={adminOpen ? post.id : null}
+          showLink={false}
+          onClose={() => setAdminOpen(false)}
+          onChanged={() => void mutate(`/api/posts/${post.id}`)}
+          onDeleted={() => {
+            setAdminOpen(false);
+            void mutate((key) => typeof key === "string" && key.startsWith("/api/"), undefined, { revalidate: true });
+            router.back();
+          }}
+        />
+      )}
       <Card className="flex flex-col gap-4 p-3">
         <div className="px-1 pt-1">
           <PostAuthorRow post={post} />

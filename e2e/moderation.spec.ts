@@ -20,6 +20,20 @@ async function quickPost(page: Page, title: string) {
   return (await res.json()).post as { id: string; author: { handle: string } };
 }
 
+/** ホームのフィードに出てくる投稿（すべてのページ） */
+async function feedIds(page: Page): Promise<string[]> {
+  const ids: string[] = [];
+  let cursor: string | null = "0";
+  for (let i = 0; i < 50 && cursor; i++) {
+    const res = await page.request.get(`/api/feed?seed=e2e&cursor=${cursor}`);
+    expect(res.status()).toBe(200);
+    const data = (await res.json()) as { items: { id: string }[]; nextCursor: string | null };
+    ids.push(...data.items.map((p) => p.id));
+    cursor = data.nextCursor;
+  }
+  return ids;
+}
+
 test.describe("通報・ミュート", () => {
   test("ミュートすると、その人の投稿が表示されなくなり、設定から解除できる", async ({ page, browser }) => {
     const ctx = await browser.newContext({ ...test.info().project.use });
@@ -39,10 +53,12 @@ test.describe("通報・ミュート", () => {
     await page.getByRole("button", { name: "ミュートされる人さんをミュート" }).click();
     await expect(page.getByTestId("muted-notice")).toBeVisible();
 
-    // ホームの「今日のお題の投稿」に出てこない
-    await open(page, "/");
+    // 今日のお題の投稿一覧（新しい順）にも、ホームのフィード（全ページ）にも出てこない
+    const themeId = (await (await page.request.get("/api/themes/current")).json()).theme.id as string;
+    await open(page, `/themes/${themeId}`);
     await expect(page.getByTestId("post-grid")).toBeVisible();
     await expect(page.locator(`a[href="/p/${theirs.id}"]`)).toHaveCount(0);
+    expect(await feedIds(page)).not.toContain(theirs.id);
 
     // 設定から解除すると戻る
     await open(page, "/settings");
@@ -50,8 +66,9 @@ test.describe("通報・ミュート", () => {
     await expect(muted).toContainText("ミュートされる人");
     await muted.getByRole("button", { name: "解除" }).click();
     await expect(muted).toContainText("ミュートしているユーザーはいません");
-    await open(page, "/");
+    await open(page, `/themes/${themeId}`);
     await expect(page.locator(`a[href="/p/${theirs.id}"]`)).toHaveCount(1);
+    expect(await feedIds(page)).toContain(theirs.id);
   });
 
   test("不適切な投稿を理由を選んで通報できる（二重には通報できない）", async ({ page, browser }) => {

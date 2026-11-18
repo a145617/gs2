@@ -19,6 +19,8 @@ test.describe("毎朝5時のお題", () => {
     const archive = page.getByTestId("theme-archive");
     await expect(archive).toContainText(title);
     await expect(archive).toContainText("開催中");
+    // 開催中のお題が一番上に出る
+    await expect(archive.getByRole("link").first()).toContainText(title);
     await archive.getByRole("link").first().click();
     await expect(page).toHaveURL(/\/themes\/[0-9a-f-]{36}$/);
     await expect(page.getByRole("heading", { name: `「${title}」` })).toBeVisible();

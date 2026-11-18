@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TEMPLATE_KEYS } from "./templates";
 
 // クライアントとサーバーで共有する入力チェック
 
@@ -96,3 +97,37 @@ export const postUpdateSchema = z.object({
   caption: postCaptionSchema.optional(),
   tags: postTagsSchema.optional(),
 });
+
+// ------------------------------------------------------------------ お題（管理者）
+export const THEME_LIMITS = { title: 20, description: 200 } as const;
+
+export const themeTitleSchema = z
+  .string("お題を入力してください")
+  .transform(cleanText)
+  .pipe(
+    z
+      .string()
+      .min(1, "お題を入力してください")
+      .max(THEME_LIMITS.title, `お題は${THEME_LIMITS.title}文字以内にしてください`),
+  );
+
+export const themeDescriptionSchema = z
+  .string()
+  .transform(cleanText)
+  .pipe(z.string().max(THEME_LIMITS.description, `説明は${THEME_LIMITS.description}文字以内にしてください`));
+
+export const templateKeySchema = z.enum(TEMPLATE_KEYS, "表示テンプレートを選んでください");
+
+export const hexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, "色は #RRGGBB の形式で指定してください");
+
+export const themeInputSchema = z.object({
+  title: themeTitleSchema,
+  description: themeDescriptionSchema.default(""),
+  template: templateKeySchema,
+  accent: hexColorSchema.optional(),
+});
+
+/** 日時（ISO 8601、タイムゾーン付き） */
+export const isoDateSchema = z.iso
+  .datetime({ offset: true, message: "日時の形式が正しくありません" })
+  .transform((s) => new Date(s));

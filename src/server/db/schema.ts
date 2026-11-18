@@ -413,6 +413,8 @@ export const events = pgTable(
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
     endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+    /** 開始のお知らせを送った時刻（予約したイベントは開始後の最初のアクセスで送る） */
+    notifiedAt: timestamp("notified_at", { withTimezone: true }),
     source: eventSource("source").notNull(),
     presetKey: text("preset_key"),
     createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
@@ -457,3 +459,40 @@ export const eventCells = pgTable(
 
 export type EventRow = typeof events.$inferSelect;
 export type EventCellRow = typeof eventCells.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// 管理（警告・操作の記録）
+// ---------------------------------------------------------------------------
+/** 管理者からアカウントへの警告。本人が確認するまで画面に表示する */
+export const warnings = pgTable(
+  "warnings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    adminId: uuid("admin_id").references(() => users.id, { onDelete: "set null" }),
+    message: text("message").notNull(),
+    acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("warnings_user_idx").on(t.userId, t.createdAt)],
+);
+
+/** 管理者の操作の記録 */
+export const auditLogs = pgTable(
+  "audit_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+    action: text("action").notNull(),
+    targetType: text("target_type").notNull(),
+    targetId: text("target_id"),
+    data: jsonb("data").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: createdAt(),
+  },
+  (t) => [index("audit_logs_created_idx").on(t.createdAt)],
+);
+
+export type WarningRow = typeof warnings.$inferSelect;
+export type AuditLogRow = typeof auditLogs.$inferSelect;

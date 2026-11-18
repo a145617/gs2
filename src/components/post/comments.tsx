@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
 import useSWRInfinite from "swr/infinite";
-import { Flag, Pencil, Send, Trash } from "lucide-react";
+import { Flag, Pencil, Send, ShieldCheck, Trash } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { TextArea } from "@/components/ui/field";
@@ -13,11 +13,13 @@ import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/client/api";
 import { formatRelative } from "@/lib/time";
 import { ReportSheet } from "@/components/moderation/report-sheet";
+import { CommentAdminSheet, type AdminCommentTarget } from "@/components/admin/comment-admin-sheet";
+import { useMe } from "@/lib/client/session";
 import type { CommentDTO, CommentPage, PostDTO } from "@/lib/types";
 
 const MAX = 300;
 
-function CommentItem({ c, onChanged }: { c: CommentDTO; onChanged: () => void }) {
+function CommentItem({ c, onChanged, onAdmin }: { c: CommentDTO; onChanged: () => void; onAdmin?: () => void }) {
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState(c.body);
   const [busy, setBusy] = useState(false);
@@ -102,6 +104,12 @@ function CommentItem({ c, onChanged }: { c: CommentDTO; onChanged: () => void })
                 通報
               </button>
             )}
+            {onAdmin && !c.viewer.isMine && (
+              <button type="button" className="inline-flex items-center gap-1 text-accent" onClick={onAdmin} data-testid="admin-comment-menu">
+                <ShieldCheck size={12} />
+                管理
+              </button>
+            )}
           </div>
         )}
         <ReportSheet
@@ -126,6 +134,9 @@ export function Comments({ post }: { post: PostDTO }) {
   });
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
+  const [adminTarget, setAdminTarget] = useState<AdminCommentTarget | null>(null);
+  const { me } = useMe();
+  const isAdmin = me?.role === "admin";
   const toast = useToast();
   const items = data?.flatMap((p) => p.items) ?? [];
   const hasMore = !!data?.[data.length - 1]?.nextCursor;
@@ -159,7 +170,12 @@ export function Comments({ post }: { post: PostDTO }) {
       ) : (
         <ul className="flex flex-col gap-4">
           {items.map((c) => (
-            <CommentItem key={c.id} c={c} onChanged={() => mutate()} />
+            <CommentItem
+              key={c.id}
+              c={c}
+              onChanged={() => mutate()}
+              onAdmin={isAdmin ? () => setAdminTarget({ id: c.id, postId: c.postId, body: c.body, status: c.status, author: c.author }) : undefined}
+            />
           ))}
         </ul>
       )}
@@ -167,6 +183,9 @@ export function Comments({ post }: { post: PostDTO }) {
         <Button size="sm" variant="ghost" onClick={() => setSize(size + 1)}>
           さらに表示
         </Button>
+      )}
+      {isAdmin && (
+        <CommentAdminSheet comment={adminTarget} showLink={false} onClose={() => setAdminTarget(null)} onChanged={() => mutate()} />
       )}
       {post.status === "visible" && (
         <form onSubmit={send} className="flex items-end gap-2">
