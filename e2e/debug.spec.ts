@@ -103,6 +103,8 @@ test.describe("デバッグモード", () => {
     await open(page, "/debug");
     await page.getByTestId("debug-event-end").click();
     await expect(page.getByTestId("debug-event-none")).toBeVisible();
+    // マスを埋めた単色の写真が開発用のDBに残らないよう、テスト用データを片付ける
+    expect((await page.request.delete("/api/debug/seed")).status()).toBe(200);
   });
 
   test("自己診断がすべて正常で、端末の対応状況・仕様の確認リスト・サンプルのRAWを確認できる", async ({ page }) => {
