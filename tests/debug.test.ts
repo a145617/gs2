@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { closeDb, db } from "@/server/db/client";
 import { follows, notifications, posts, users } from "@/server/db/schema";
 import { now } from "@/server/clock";
@@ -96,6 +96,24 @@ describe("デバッグモード（仕様: 任意のタイミング・内容で�
     // テスト用ユーザーからのお知らせも消える
     const left = await db.select().from(notifications).where(eq(notifications.userId, me.id));
     expect(left.filter((n) => n.actorId !== null)).toHaveLength(0);
+  });
+
+  it("ダミーの投稿には Unsplash の写真を使い、お題に合う写真を優先する（撮影者をキャプションに表示）", async () => {
+    const me = await makeUser("確認する人");
+    const at = await now();
+    await startDebugTheme(me.viewer, { title: "雨", template: "window" }, at);
+    const r = await seedDemoData(me.viewer, { users: 2, postsPerUser: 2 }, at);
+    // 「雨」のタグを持つ写真は3枚（窓の雨粒・雨の日の緑・雨の日の傘）。残りの1枚はほかの写真
+    expect(r).toMatchObject({ posts: 4, matched: 3 });
+    const testUsers = await listTestUsers();
+    const rows = await db.select().from(posts).where(inArray(posts.userId, testUsers.map((u) => u.id)));
+    const titles = rows.map((p) => p.title);
+    expect(titles).toEqual(expect.arrayContaining(["窓の雨粒", "雨の日の緑", "雨の日の傘"]));
+    for (const p of rows) {
+      expect(p.caption).toMatch(/写真: .+（Unsplash）/);
+      expect(p.caption).toContain("#雨");
+      expect(p.width).toBeGreaterThan(600);
+    }
   });
 
   it("開催中のイベントのマスをテスト用ユーザーの写真で埋められ、全部埋まると完成する", async () => {
