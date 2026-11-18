@@ -7,7 +7,7 @@ import { Select } from "@/components/ui/field";
 import { api } from "@/lib/client/api";
 import { InfoRow, Panel, useDebugAction, type DebugStatus } from "./shared";
 
-type SeedResult = { users: number; posts: number; likes: number; comments: number; follows: number };
+type SeedResult = { users: number; posts: number; matched: number; likes: number; comments: number; follows: number };
 type ReportResult = { title: string; sent: number; autoHidden: boolean };
 
 /** テスト用のデータ（ほかの人の投稿・いいね・コメント・フォロー・通報）を作る／消す */
@@ -21,7 +21,7 @@ export function DataPanel({ status, impersonating }: { status: DebugStatus; impe
       id="data"
       icon={<Database size={20} />}
       title="テスト用のデータ"
-      description="ほかの人の投稿がないと確認できない機能（投稿後の閲覧・いいね・コメント・フィードの並び・検索・お知らせなど）のために、テスト用ユーザーとその投稿を作ります。"
+      description="ほかの人の投稿がないと確認できない機能（投稿後の閲覧・いいね・コメント・フィードの並び・検索・お知らせなど）のために、テスト用ユーザーとその投稿を作ります。写真は Unsplash の100枚から、今日のお題に合うものを優先して使います（撮影者はキャプションに表示）。"
     >
       <div>
         <InfoRow label="テスト用ユーザー" testId="debug-test-users">
@@ -54,7 +54,7 @@ export function DataPanel({ status, impersonating }: { status: DebugStatus; impe
           run(
             "seed",
             () => api<SeedResult>("/api/debug/seed", { method: "POST", json: { users, postsPerUser: per } }),
-            (r) => `${r.users}人が今日のお題に${r.posts}枚投稿し、いいね${r.likes}・コメント${r.comments}・フォロー${r.follows}を付けました`,
+            (r) => `${r.users}人が今日のお題に${r.posts}枚投稿し（お題に合う写真 ${r.matched}枚）、いいね${r.likes}・コメント${r.comments}・フォロー${r.follows}を付けました`,
           )
         }
         data-testid="debug-seed"

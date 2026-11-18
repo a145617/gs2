@@ -8,6 +8,7 @@ import { processPostImage, type ProcessedPostImage } from "../images";
 import { mediaUrl } from "../storage";
 import { randomId } from "../auth/tokens";
 import { avatarImage, colorPhoto, demoPhoto, hueOf } from "../debug/images";
+import { loadDemoPhoto, pickDemoPhotos } from "../debug/demo-photos";
 import { purgeUserContent } from "./admin";
 import {
   completeIfFilled,
@@ -191,7 +192,15 @@ async function safe(fn: () => Promise<unknown>): Promise<boolean> {
   }
 }
 
-export type SeedResult = { users: number; posts: number; likes: number; comments: number; follows: number };
+export type SeedResult = {
+  users: number;
+  posts: number;
+  /** そのうち、お題に合う写真を使った投稿の数 */
+  matched: number;
+  likes: number;
+  comments: number;
+  follows: number;
+};
 
 /**
  * テスト用ユーザーに、今日のお題への投稿・いいね・ブックマーク・コメント・フォロー・閲覧を作らせる。
@@ -205,25 +214,32 @@ export async function seedDemoData(viewer: ViewerCtx, opts: { users?: number; po
   const hue = hueOf(theme.accent);
   const created: { id: string; userId: string }[] = [];
   const start = Math.max(theme.startsAt.getTime(), at.getTime() - 3 * HOUR);
-  const result: SeedResult = { users: people.length, posts: 0, likes: 0, comments: 0, follows: 0 };
+  const result: SeedResult = { users: people.length, posts: 0, matched: 0, likes: 0, comments: 0, follows: 0 };
+  // Unsplash の写真から、お題に合うものを優先して選ぶ（足りなければほかの写真、写真が無ければ描いた絵）
+  const { photos, matched } = pickDemoPhotos({ title: theme.title, description: theme.description }, n * per);
+  let next = 0;
 
   for (const [i, p] of people.entries()) {
     for (let k = 0; k < per; k++) {
-      const seed = Math.floor(Math.random() * 1e9);
-      const tags = shuffle([...TAGS]).slice(0, 2);
+      const photoIndex = next++;
+      const photo = photos[photoIndex];
+      const file = photo ? await loadDemoPhoto(photo) : null;
+      const tags = photo ? photo.tags.slice(0, 2) : shuffle([...TAGS]).slice(0, 2);
+      const credit = photo && file ? `\n写真: ${photo.by}（Unsplash）` : "";
       try {
         const { post } = await createThemePost(
           p.viewer,
           {
-            title: pick(TITLES, Math.random()),
-            caption: `${pick(SENTENCES)} #${theme.title.replace(/\s+/g, "")} #${tags[0]}`,
+            title: photo && file ? photo.title : pick(TITLES, Math.random()),
+            caption: `${pick(SENTENCES)} #${theme.title.replace(/\s+/g, "")} #${tags[0]}${credit}`,
             tags: [tags[1]],
             themeId: theme.id,
-            meta: METAS[(i + k) % METAS.length],
+            meta: photo && file ? { mode: "library" } : METAS[(i + k) % METAS.length],
           },
-          await demoPhoto(seed, hue),
+          file ?? (await demoPhoto(Math.floor(Math.random() * 1e9), hue)),
           at,
         );
+        if (file && photoIndex < matched) result.matched++;
         // 投稿時刻を少しずつずらす（新しい順の一覧・フィードの確認用）
         const when = new Date(start + Math.random() * Math.max(0, at.getTime() - start));
         await db.update(posts).set({ createdAt: when, updatedAt: when }).where(eq(posts.id, post.id));
