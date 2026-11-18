@@ -93,6 +93,22 @@ npm run dev                    # http://localhost:3000
 7. 公開された URL を開き、初期管理者でログインします。`DEBUG_MODE=true` なら `/debug` の「自己診断」で、
    DB と Blob への保存がその環境で動くことを確認できます。
 
+### 合言葉を知っている人だけに試してもらう（実験的な配布）
+
+環境変数 `ACCESS_CODE` に合言葉を設定すると、その合言葉を一度入力した端末だけがアプリを開けるようになります
+（入力していない端末では、画面は合言葉の入力画面に誘導され、API と画像は 401 になります）。
+Vercel のアカウントを持っていない人にも、デバッグモードのまま限られた人に試してもらうときに使います。
+
+1. 「Settings → Environment Variables」に `ACCESS_CODE`（合言葉）を追加し、`DEBUG_MODE` を `true` にして再デプロイします。
+2. 「Settings → Deployment Protection」の **Vercel Authentication** をオフにします（Vercel にログインしていない人も開けるように）。
+3. 試してもらう人に、URL と合言葉を伝えます。合言葉は前後の空白・全角半角の違いを区別しません。
+   入力は同じ接続元から15分に10回までです。一度入力すると、その端末では90日間入力し直す必要はありません。
+4. 合言葉を変えると、それまでに入力した端末も入力し直しになります（試してもらう人を入れ替えるとき）。
+5. 一般に公開するときは、`ACCESS_CODE` を削除し、`DEBUG_MODE` を `false` にして再デプロイします。
+
+> デバッグモードでは、合言葉を知っている人はだれでも時刻を動かしたり、テスト管理者として管理画面を使ったりできます。
+> 合言葉は信頼できる人にだけ伝え、本番の利用者のデータがある環境では使わないでください。
+
 ## 環境変数
 
 | 名前 | 説明 |
@@ -105,6 +121,7 @@ npm run dev                    # http://localhost:3000
 | `LOCAL_STORAGE_DIR` | `local` のときの保存先（既定は `.data/uploads`） |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | 初期管理者（`npm run seed` で、管理者がいない場合に作成） |
 | `DEBUG_MODE` | `true` でデバッグモード |
+| `ACCESS_CODE` | 合言葉（設定すると、合言葉を入力した端末だけが開ける。未設定なら制限なし） |
 
 画像はどちらの保存先でも、同じオリジンの `/media/...` から配信します（位置情報などのメタデータは保存しません）。
 
@@ -117,6 +134,14 @@ npm run test:e2e  # ブラウザでのE2Eテスト（Playwright）
 
 E2Eテストは、スマートフォンを想定した3種類（Android の Chrome = Pixel 7、iPhone の Safari = iPhone 15 の WebKit、Firefox）で
 同じテストを実行します。Windows 版の WebKit にはカメラの機能がないため、iPhone ではカメラを使う2件のテストを省略しています。
+
+合言葉（`ACCESS_CODE`）のE2Eテストは、合言葉を設定したサーバーに対してだけ実行します（通常の実行では省略されます）。
+
+```bash
+npm run build
+ACCESS_CODE=合言葉 npx next start -p 3100
+E2E_BASE_URL=http://localhost:3100 E2E_ACCESS_CODE=合言葉 npx playwright test e2e/access.spec.ts
+```
 
 ### 実機での確認をお願いしたいこと
 
