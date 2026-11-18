@@ -116,7 +116,7 @@ export function DevicePanel() {
         サンプルのRAW（DNG）をダウンロード
       </a>
       <p className="-mt-2 px-1 text-xs leading-relaxed text-ink-3">
-        撮影画面の「ライブラリ」から選ぶと、RAWの読み込みと現像（露出・ホワイトバランスなど）を確認できます。
+        撮影画面の「RAW 取り込み」から選ぶと、RAWの読み込みと現像（露出・色温度など）を確認できます。
       </p>
 
       <Toggle
