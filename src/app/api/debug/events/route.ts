@@ -1,13 +1,10 @@
 import type { NextRequest } from "next/server";
-import { and, gt, lte } from "drizzle-orm";
 import { z } from "zod";
 import { route, json, readJson } from "@/server/http/respond";
 import { assertSameOrigin } from "@/server/http/csrf";
 import { requireDebug } from "@/server/http/debug";
 import { now } from "@/server/clock";
-import { db } from "@/server/db/client";
-import { events } from "@/server/db/schema";
-import { buildPreset, createEvent, endEventNow, notifyEventStart, toEventDTO } from "@/server/services/events";
+import { buildPreset, createEvent, endActiveEvents, notifyEventStart, toEventDTO } from "@/server/services/events";
 import { PRESET_KEYS, PRESETS, type PixelArt } from "@/lib/pixel-art";
 
 const HOUR = 3600_000;
@@ -21,11 +18,6 @@ const schema = z.object({
   threshold: z.number().min(0.01).max(1).default(0.25),
   title: z.string().max(40).optional(),
 });
-
-async function endActive(at: Date) {
-  const active = await db.select({ id: events.id }).from(events).where(and(lte(events.startsAt, at), gt(events.endsAt, at)));
-  for (const e of active) await endEventNow(e.id, at);
-}
 
 /** デバッグ: 任意の内容でイベントを今すぐ開催する（開催中のイベントは終了させる） */
 export const POST = route(async (req: NextRequest) => {
@@ -49,7 +41,7 @@ export const POST = route(async (req: NextRequest) => {
     art = buildPreset(key, input.size, input.size);
     title ??= PRESETS[key].name;
   }
-  await endActive(at);
+  await endActiveEvents(at);
   const ev = await createEvent({
     title,
     description: "デバッグモードで開始したイベントです。",
@@ -69,6 +61,6 @@ export const POST = route(async (req: NextRequest) => {
 export const DELETE = route(async (req: NextRequest) => {
   assertSameOrigin(req);
   await requireDebug(req);
-  await endActive(await now());
+  await endActiveEvents(await now());
   return json({ ok: true });
 });

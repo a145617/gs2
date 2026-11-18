@@ -79,3 +79,17 @@ export function formatRelative(t: Date | string, now: Date = new Date()): string
   if (diff < 7 * DAY) return `${Math.floor(diff / DAY)}日前`;
   return formatJstDate(t);
 }
+
+/** 日時入力欄（datetime-local）に入れる値。日本時間で表す 例: 2026-11-18T05:00 */
+export function toJstInputValue(t: Date | string): string {
+  const p = jstParts(new Date(t));
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${p.y}-${pad(p.m)}-${pad(p.d)}T${pad(p.h)}:${pad(p.min)}`;
+}
+
+/** 日時入力欄の値（日本時間）を ISO 8601 の文字列にする。空や不正な値なら null */
+export function fromJstInputValue(v: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v)) return null;
+  const d = new Date(`${v}:00+09:00`);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}

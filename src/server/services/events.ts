@@ -146,8 +146,14 @@ async function notifyUsers(userIds: string[], data: Record<string, unknown>, at:
   }
 }
 
-/** イベント開始のお知らせを全員に送る */
+/** イベント開始のお知らせを全員に送る（1つのイベントにつき1回だけ） */
 export async function notifyEventStart(ev: EventRow) {
+  const marked = await db
+    .update(events)
+    .set({ notifiedAt: new Date() })
+    .where(and(eq(events.id, ev.id), isNull(events.notifiedAt)))
+    .returning({ id: events.id });
+  if (marked.length === 0) return;
   const rows = await db.select({ id: users.id }).from(users).where(eq(users.status, "active"));
   await notifyUsers(
     rows.map((r) => r.id),
@@ -337,8 +343,60 @@ async function countMyCells(eventId: string, userId: string) {
   return row?.n ?? 0;
 }
 
+/** 予約されていたイベントが始まっていたら、開始のお知らせを送る（cron 不要） */
+export async function ensureStartNotifications(at: Date): Promise<void> {
+  const due = await db
+    .select()
+    .from(events)
+    .where(and(lte(events.startsAt, at), gt(events.endsAt, at), isNull(events.notifiedAt)));
+  for (const ev of due) await notifyEventStart(ev);
+}
+
+/** 開催中のイベントをすべて終了する（新しいイベントを今すぐ始めるとき） */
+export async function endActiveEvents(at: Date): Promise<number> {
+  const active = await db
+    .select({ id: events.id })
+    .from(events)
+    .where(and(lte(events.startsAt, at), gt(events.endsAt, at)));
+  for (const e of active) await endEventNow(e.id, at);
+  return active.length;
+}
+
+/** 管理者: イベントの名前・説明・終了日時を変更する */
+export async function updateEvent(id: string, patch: { title?: string; description?: string; endsAt?: Date }) {
+  const row = await getEventRow(id);
+  if (patch.endsAt && patch.endsAt <= row.startsAt) throw badRequest("終了日時は開始日時より後にしてください");
+  const [u] = await db
+    .update(events)
+    .set({
+      ...(patch.title !== undefined ? { title: patch.title } : {}),
+      ...(patch.description !== undefined ? { description: patch.description } : {}),
+      ...(patch.endsAt ? { endsAt: patch.endsAt } : {}),
+    })
+    .where(eq(events.id, id))
+    .returning();
+  return u;
+}
+
+/** 管理者: 開始前のイベントを取り消す */
+export async function deleteUpcomingEvent(id: string, at: Date) {
+  if (!/^[0-9a-f-]{36}$/.test(id)) throw notFound("イベントが見つかりませんでした");
+  const rows = await db
+    .delete(events)
+    .where(and(eq(events.id, id), gt(events.startsAt, at)))
+    .returning({ id: events.id });
+  if (rows.length === 0) throw badRequest("開始前のイベントのみ取り消せます");
+}
+
+/** 管理者: 予定・開催中・終了済みのすべてのイベント（新しい順） */
+export async function listAllEvents(at: Date) {
+  const rows = await db.select().from(events).orderBy(desc(events.startsAt)).limit(50);
+  return Promise.all(rows.map((r) => toEventDTO(r, at)));
+}
+
 export async function getCurrentEventInfo(viewer: ViewerCtx, at: Date): Promise<CurrentEventResponse> {
   await ensureAutoEvent(at);
+  await ensureStartNotifications(at);
   const [cur, upcoming] = await Promise.all([findCurrentEvent(at), findUpcoming(at)]);
   return {
     event: cur ? await toEventDTO(cur, at) : null,
@@ -446,7 +504,12 @@ export async function createEventPost(
 
 /** 管理者・デバッグ: 今すぐ終了する */
 export async function endEventNow(id: string, at: Date) {
-  const [row] = await db.update(events).set({ endsAt: at }).where(and(eq(events.id, id), gt(events.endsAt, at))).returning();
+  if (!/^[0-9a-f-]{36}$/.test(id)) throw notFound("イベントが見つかりませんでした");
+  const [row] = await db
+    .update(events)
+    .set({ endsAt: at })
+    .where(and(eq(events.id, id), lte(events.startsAt, at), gt(events.endsAt, at)))
+    .returning();
   if (!row) throw badRequest("開催中のイベントではありません");
   return row;
 }

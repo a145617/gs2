@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { Bookmark, CalendarClock, Settings } from "lucide-react";
+import { Bookmark, CalendarClock, Settings, ShieldCheck } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
-import { LinkButton } from "@/components/ui/button";
+import { IconButton, LinkButton } from "@/components/ui/button";
+import { UserAdminSheet } from "@/components/admin/user-admin-sheet";
+import { useMe } from "@/lib/client/session";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty";
 import { PageSpinner } from "@/components/ui/spinner";
@@ -42,6 +45,9 @@ function Count({ href, label, value, testId }: { href?: string; label: string; v
 export function ProfileView({ handle, actions, children }: { handle: string; actions?: ReactNode; children?: ReactNode }) {
   const key = `/api/users/${encodeURIComponent(handle)}`;
   const { data, error, isLoading, mutate } = useSWR<ProfileResponse, ApiError>(key);
+  const { me } = useMe();
+  const isAdmin = me?.role === "admin";
+  const [adminOpen, setAdminOpen] = useState(false);
 
   if (isLoading) return <PageSpinner />;
   if (error || !data) {
@@ -100,11 +106,19 @@ export function ProfileView({ handle, actions, children }: { handle: string; act
                 user={{ handle: user.handle, displayName: user.displayName, muted: data.muted }}
                 onMuteChange={() => mutate()}
               />
+              {isAdmin && (
+                <IconButton label="アカウントを管理" onClick={() => setAdminOpen(true)} data-testid="admin-user-menu">
+                  <ShieldCheck size={18} />
+                </IconButton>
+              )}
               {actions}
             </>
           )}
         </div>
       </Card>
+      {isAdmin && !isMe && (
+        <UserAdminSheet userId={adminOpen ? user.id : null} onClose={() => setAdminOpen(false)} onChanged={() => mutate()} />
+      )}
       {children}
       <section>
         <h2 className="mb-3 px-1 text-[13px] font-bold tracking-wider text-ink-3">投稿</h2>

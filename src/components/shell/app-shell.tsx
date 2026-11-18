@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Bell, ShieldCheck } from "lucide-react";
 import { Header } from "./header";
 import { TabBar, TabBarView } from "./tab-bar";
+import { WarningGate } from "@/components/moderation/warning-gate";
 import { useMe } from "@/lib/client/session";
 import { useCurrentTheme } from "@/lib/client/theme";
 import { applyAccent } from "@/lib/client/prefs";
@@ -49,6 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <>
       {me && <ThemeAccentSync />}
+      {me && <WarningGate />}
       <Suspense fallback={null}>
         <AuthRedirect unauthorized={unauthorized} />
       </Suspense>

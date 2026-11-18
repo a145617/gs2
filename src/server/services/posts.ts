@@ -8,7 +8,7 @@ import { processPostImage, type ProcessedPostImage } from "../images";
 import { randomId } from "../auth/tokens";
 import { getSetting, SETTING_KEYS } from "../settings";
 import { getCurrentTheme, toThemeDTO } from "./themes";
-import { collectTags } from "@/lib/hashtags";
+import { collectTags, extractTags } from "@/lib/hashtags";
 import { buildSearchText } from "@/lib/search";
 import type { PhotoMeta } from "@/lib/photo-meta";
 import type { PostDTO, PostPage } from "@/lib/types";
@@ -379,7 +379,10 @@ export async function updatePost(
     const [u] = await tx.update(posts).set(values).where(eq(posts.id, id)).returning();
     let tags = await currentTagNames(id, tx);
     if (patch.tags !== undefined || patch.caption !== undefined) {
-      tags = collectTags(patch.tags ?? tags, patch.caption ?? u.caption);
+      // キャプションだけを直したときは、元のキャプションから付いたタグを外して付け直す
+      const oldCaptionTags = new Set(extractTags(row.caption));
+      const base = patch.tags ?? tags.filter((t) => !oldCaptionTags.has(t));
+      tags = collectTags(base, patch.caption ?? u.caption);
       await detachTags(tx, id);
       await attachTags(tx, id, tags);
     }
