@@ -32,7 +32,7 @@ export function mediaUrl(key: string | null | undefined): string | null {
 }
 
 function localDir() {
-  return path.resolve(process.env.LOCAL_STORAGE_DIR ?? ".data/uploads");
+  return path.resolve(/*turbopackIgnore: true*/ process.env.LOCAL_STORAGE_DIR ?? ".data/uploads");
 }
 
 async function blobModule() {
@@ -54,9 +54,9 @@ export async function putObject(key: string, data: Buffer | Uint8Array, contentT
     });
     return;
   }
-  const file = path.join(localDir(), key);
-  await mkdir(path.dirname(file), { recursive: true });
-  await writeFile(file, data);
+  const file = path.join(/*turbopackIgnore: true*/ localDir(), key);
+  await mkdir(/*turbopackIgnore: true*/ path.dirname(file), { recursive: true });
+  await writeFile(/*turbopackIgnore: true*/ file, data);
 }
 
 export async function getObject(key: string): Promise<StoredObject | null> {
@@ -67,11 +67,11 @@ export async function getObject(key: string): Promise<StoredObject | null> {
     if (!res || res.statusCode !== 200) return null;
     return { body: res.stream, contentType: res.blob.contentType || contentTypeFor(key), size: res.blob.size };
   }
-  const file = path.join(localDir(), key);
+  const file = path.join(/*turbopackIgnore: true*/ localDir(), key);
   try {
-    const info = await stat(file);
+    const info = await stat(/*turbopackIgnore: true*/ file);
     if (!info.isFile()) return null;
-    const buf = await readFile(file);
+    const buf = await readFile(/*turbopackIgnore: true*/ file);
     return { body: new Uint8Array(buf), contentType: contentTypeFor(key), size: buf.length };
   } catch {
     return null;
@@ -85,7 +85,7 @@ export async function deleteObject(key: string | null | undefined) {
     await del(key).catch(() => {});
     return;
   }
-  await rm(path.join(localDir(), key), { force: true }).catch(() => {});
+  await rm(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ localDir(), key), { force: true }).catch(() => {});
 }
 
 /** 指定キーで始まるファイルをまとめて削除（投稿画像の複数サイズなど） */

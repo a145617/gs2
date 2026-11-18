@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { unstable_rethrow } from "next/navigation";
 import { ZodError } from "zod";
 
 /** APIで返すエラー（ステータスコード・機械向けコード・日本語メッセージ） */
@@ -71,6 +72,9 @@ export function route<C = unknown>(fn: Handler<C>): Handler<C> {
     try {
       return await fn(req, ctx);
     } catch (err) {
+      // Next.js 自身が使う例外（ビルド時の事前描画で Cookie を読んだときの「動的に切り替える」合図など）は
+      // アプリのエラーとして扱わず、そのまま Next.js に返す
+      unstable_rethrow(err);
       return errorResponse(err);
     }
   };
