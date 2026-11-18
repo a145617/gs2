@@ -108,12 +108,12 @@ export function DevicePanel() {
           ]}
         />
         <p className="px-1 text-xs leading-relaxed text-ink-3">
-          撮影画面で、本物のカメラの代わりに動く風景の映像を使います。「手動設定あり」では、シャッタースピード・ISOに対応した端末のふりをします。
+          撮影画面で、本物のカメラの代わりに Unsplash の写真をゆっくり動かした映像を使います（イベントでは担当の色に近い写真）。「手動設定あり」では、シャッタースピード・ISOに対応した端末のふりをします。
         </p>
       </div>
 
       <a href="/api/debug/sample-dng" download className="neu neu-sm neu-convex neu-press flex h-11 items-center justify-center rounded-[16px] text-sm text-ink" data-testid="debug-sample-dng">
-        サンプルのRAW（DNG）をダウンロード
+        サンプルのRAW（DNG・Unsplash の写真から作成）をダウンロード
       </a>
       <p className="-mt-2 px-1 text-xs leading-relaxed text-ink-3">
         撮影画面の「RAW 取り込み」から選ぶと、RAWの読み込みと現像（露出・色温度など）を確認できます。

@@ -7,8 +7,7 @@ import { getClockOffsetMs, setClockOffsetMs } from "../clock";
 import { processPostImage, type ProcessedPostImage } from "../images";
 import { mediaUrl } from "../storage";
 import { randomId } from "../auth/tokens";
-import { avatarImage, colorPhoto, demoPhoto, hueOf } from "../debug/images";
-import { loadDemoPhoto, pickDemoPhotos } from "../debug/demo-photos";
+import { avatarPhoto, loadDemoPhoto, photoForColor, pickDemoPhotos, requireDemoPhoto } from "../debug/demo-photos";
 import { purgeUserContent } from "./admin";
 import {
   completeIfFilled,
@@ -27,7 +26,7 @@ import { createUser, deleteAccount, setAvatar } from "./users";
 import { recordViews } from "./views";
 import { nextThemeChange } from "@/lib/time";
 import type { TemplateKey } from "@/lib/templates";
-import type { PhotoMeta } from "@/lib/photo-meta";
+import { colorCoverage } from "@/lib/color";
 
 // =============================================================================
 // デバッグモード: 仕様の各機能を確認するための操作（DEBUG_MODE=true のときだけAPIから呼ばれる）
@@ -125,11 +124,8 @@ async function makeTestUser(displayName: string, seed: number, role: "user" | "a
     role,
     isTestUser: true,
   });
-  try {
-    return await setAvatar(u.id, await avatarImage(seed));
-  } catch {
-    return u;
-  }
+  const image = await loadDemoPhoto(avatarPhoto(seed));
+  return image ? setAvatar(u.id, image) : u;
 }
 
 /** テスト用ユーザーを n 人そろえる（足りなければ作る） */
@@ -151,10 +147,6 @@ export async function ensureTestAdmin(): Promise<UserRow> {
 }
 
 // ------------------------------------------------------------------ ダミーデータ
-const TITLES = [
-  "朝の気配", "帰り道", "ひとやすみ", "風のかたち", "透明な午後", "まどろみ", "名前のない色", "遠くの音",
-  "光の通り道", "雨上がり", "静かな場所", "いつかの夏", "小さな発見", "影あそび", "やわらかな時間", "まちかど",
-];
 const SENTENCES = [
   "いつもの道で見つけた一枚。",
   "少しだけ立ち止まって撮りました。",
@@ -163,7 +155,6 @@ const SENTENCES = [
   "なんでもない瞬間を残したくて。",
   "ふと見上げたら、こうなっていました。",
 ];
-const TAGS = ["散歩", "日常", "光", "スマホ写真", "ひとこま", "週末", "色", "影", "風景", "記録"];
 const COMMENTS = [
   "素敵な色ですね",
   "この光、好きです",
@@ -173,14 +164,6 @@ const COMMENTS = [
   "空気感が伝わってきます",
   "真似したくなりました",
 ];
-const METAS: PhotoMeta[] = [
-  { mode: "manual", exposureTime: 1 / 250, iso: 100, fNumber: 1.8, make: "Hitokoma", model: "デバッグカメラ" },
-  { mode: "auto", exposureTime: 1 / 120, iso: 200 },
-  { mode: "raw", rawFormat: "DNG", exposureTime: 1 / 60, iso: 400, fNumber: 2.8, make: "Hitokoma", model: "TestDNG" },
-  { mode: "library" },
-  { mode: "native" },
-];
-
 /** 想定内の失敗（見られない投稿・二重の操作など 4xx）は無視して続ける */
 async function safe(fn: () => Promise<unknown>): Promise<boolean> {
   try {
@@ -211,35 +194,32 @@ export async function seedDemoData(viewer: ViewerCtx, opts: { users?: number; po
   const per = Math.max(1, Math.min(4, opts.postsPerUser ?? 2));
   const theme = await getCurrentTheme(at);
   const people = await ensureTestUsers(n);
-  const hue = hueOf(theme.accent);
   const created: { id: string; userId: string }[] = [];
   const start = Math.max(theme.startsAt.getTime(), at.getTime() - 3 * HOUR);
   const result: SeedResult = { users: people.length, posts: 0, matched: 0, likes: 0, comments: 0, follows: 0 };
-  // Unsplash の写真から、お題に合うものを優先して選ぶ（足りなければほかの写真、写真が無ければ描いた絵）
+  // Unsplash の写真（assets/demo-photos）から、お題に合うものを優先して選ぶ（足りなければほかの写真）
   const { photos, matched } = pickDemoPhotos({ title: theme.title, description: theme.description }, n * per);
   let next = 0;
 
-  for (const [i, p] of people.entries()) {
+  for (const p of people) {
     for (let k = 0; k < per; k++) {
       const photoIndex = next++;
-      const photo = photos[photoIndex];
-      const file = photo ? await loadDemoPhoto(photo) : null;
-      const tags = photo ? photo.tags.slice(0, 2) : shuffle([...TAGS]).slice(0, 2);
-      const credit = photo && file ? `\n写真: ${photo.by}（Unsplash）` : "";
+      const photo = photos[photoIndex % photos.length];
+      const [tag1, tag2] = photo.tags;
       try {
         const { post } = await createThemePost(
           p.viewer,
           {
-            title: photo && file ? photo.title : pick(TITLES, Math.random()),
-            caption: `${pick(SENTENCES)} #${theme.title.replace(/\s+/g, "")} #${tags[0]}${credit}`,
-            tags: [tags[1]],
+            title: photo.title,
+            caption: `${pick(SENTENCES)} #${theme.title.replace(/\s+/g, "")} #${tag1}\n写真: ${photo.by}（Unsplash）`,
+            tags: [tag2],
             themeId: theme.id,
-            meta: photo && file ? { mode: "library" } : METAS[(i + k) % METAS.length],
+            meta: { mode: "library" },
           },
-          file ?? (await demoPhoto(Math.floor(Math.random() * 1e9), hue)),
+          await requireDemoPhoto(photo),
           at,
         );
-        if (file && photoIndex < matched) result.matched++;
+        if (photoIndex < matched) result.matched++;
         // 投稿時刻を少しずつずらす（新しい順の一覧・フィードの確認用）
         const when = new Date(start + Math.random() * Math.max(0, at.getTime() - start));
         await db.update(posts).set({ createdAt: when, updatedAt: when }).where(eq(posts.id, post.id));
@@ -320,7 +300,8 @@ export async function fillEventCells(eventId: string | null, countOrAll: number 
   const limit = countOrAll === "all" ? 600 : Math.max(1, Math.min(600, countOrAll));
   const targets = empty.slice(0, limit);
   const people = targets.length > 0 ? await ensureTestUsers(Math.min(8, Math.max(3, ev.palette.length))) : [];
-  const images = new Map<number, ProcessedPostImage>();
+  // 同じ写真の処理（縮小など）は1回だけ行う
+  const images = new Map<string, ProcessedPostImage>();
   let filled = 0;
   for (const [k, cell] of targets.entries()) {
     const p = people[k % people.length];
@@ -329,20 +310,30 @@ export async function fillEventCells(eventId: string | null, countOrAll: number 
       .insert(eventParticipants)
       .values({ eventId: ev.id, userId: p.id, colorIndex: cell.c })
       .onConflictDoUpdate({ target: [eventParticipants.eventId, eventParticipants.userId], set: { colorIndex: cell.c } });
-    let processed = images.get(cell.c);
+    const photo = photoForColor(color.hex);
+    let processed = images.get(photo.id);
     if (!processed) {
-      processed = await processPostImage(await colorPhoto(color.hex));
-      images.set(cell.c, processed);
+      processed = await processPostImage(await requireDemoPhoto(photo));
+      images.set(photo.id, processed);
     }
+    const coverage = colorCoverage(processed.analysis.data, 3, color.hex, ev.deltaE);
     const row = await insertPost(
       p.viewer,
-      { title: `${color.name}のひとこま`, caption: "", tags: [], meta: { mode: "auto" }, kind: "event", themeId: null, eventId: ev.id },
+      {
+        title: photo.title,
+        caption: `「${color.name}」の1ピクセルに\n写真: ${photo.by}（Unsplash）`,
+        tags: [],
+        meta: { mode: "library" },
+        kind: "event",
+        themeId: null,
+        eventId: ev.id,
+      },
       processed,
       at,
     );
     const claimed = await db
       .update(eventCells)
-      .set({ postId: row.id, userId: p.id, coverage: 0.9, filledAt: at })
+      .set({ postId: row.id, userId: p.id, coverage, filledAt: at })
       .where(and(eq(eventCells.eventId, ev.id), eq(eventCells.cellIndex, cell.i), isNull(eventCells.postId)))
       .returning({ i: eventCells.cellIndex });
     if (claimed.length === 0) {

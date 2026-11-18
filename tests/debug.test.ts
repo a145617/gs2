@@ -22,6 +22,7 @@ import {
   triggerAutoEvent,
 } from "@/server/services/debug";
 import { runSelfTests } from "@/server/services/selftest";
+import { photosNearColor } from "@/server/debug/demo-photos";
 import { themeDayKey } from "@/lib/time";
 import { resetDb } from "./support/db";
 import { makeImage, makeUser } from "./support/factories";
@@ -133,9 +134,12 @@ describe("デバッグモード（仕様: 任意のタイミング・内容で�
     const detail = await getEventDetail(me.viewer, ev.id, at);
     expect(detail.event.status).toBe("completed");
     expect(detail.cells.every((c) => c.postId && c.tile)).toBe(true);
-    // 埋めた写真には、そのマスの色が記録されている
+    // マスは、その色に近い Unsplash の写真で埋まる（撮影者をキャプションに表示）
     const p = await db.query.posts.findFirst({ where: eq(posts.id, detail.cells[1].postId!) });
-    expect(p?.title).toBe("赤のひとこま");
+    const nearRed = photosNearColor("#d64545").slice(0, 3).map((x) => x.title);
+    expect(nearRed).toContain(p?.title);
+    expect(p?.caption).toContain("「赤」の1ピクセルに");
+    expect(p?.caption).toMatch(/写真: .+（Unsplash）/);
     await expect(fillEventCells(null, 1, new Date(at.getTime() + 2 * HOUR))).rejects.toMatchObject({ status: 400 });
   });
 

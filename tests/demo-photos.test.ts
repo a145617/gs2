@@ -2,9 +2,8 @@ import { describe, expect, it } from "vitest";
 import { existsSync, statSync } from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
-import { DEMO_PHOTOS, loadDemoPhoto, pickDemoPhotos, themeMatchScore } from "@/server/debug/demo-photos";
+import { DEMO_PHOTOS, loadDemoPhoto, pickDemoPhotos, seededRandom, themeMatchScore } from "@/server/debug/demo-photos";
 import { DEFAULT_THEME_POOL } from "@/server/seed/theme-pool";
-import { seededRandom } from "@/server/debug/images";
 
 describe("デバッグ用のダミー投稿の写真（Unsplash の100枚）", () => {
   it("100枚そろっていて、ファイル・撮影者・写真のページ・タグがある", () => {

@@ -20,6 +20,7 @@ import {
 import { getObject } from "@/server/storage";
 import { signupSchema } from "@/lib/validation";
 import { resetDb } from "./support/db";
+import { makeImage } from "./support/factories";
 
 describe("アカウント・ログイン（仕様: アカウント、ログイン機能 / アイコン・ユーザー名・ユーザーID）", () => {
   beforeEach(resetDb);
@@ -85,7 +86,8 @@ describe("アカウント・ログイン（仕様: アカウント、ログイ�
 
   it("アイコン画像を変更・削除できる（正方形のWebPに変換して保存）", async () => {
     const u = await createUser({ email: "a@example.com", password: "password1", displayName: "あ" });
-    const png = await sharp({ create: { width: 800, height: 400, channels: 3, background: "#3366cc" } })
+    // 横長の写真（Unsplash の入道雲）を PNG にして送る
+    const png = await sharp(await makeImage("#3366cc", 800, 400))
       .png()
       .toBuffer();
     const withAvatar = await setAvatar(u.id, png);
