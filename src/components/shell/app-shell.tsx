@@ -4,7 +4,8 @@ import { Suspense, useEffect } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, ShieldCheck } from "lucide-react";
+import { Bell, Bug, ShieldCheck } from "lucide-react";
+import { ImpersonationBanner } from "@/components/debug/impersonation-banner";
 import { Header } from "./header";
 import { TabBar, TabBarView } from "./tab-bar";
 import { WarningGate } from "@/components/moderation/warning-gate";
@@ -42,7 +43,7 @@ const iconLink =
 
 /** ログイン後の画面共通の枠（ヘッダー・本文・タブバー） */
 export function AppShell({ children }: { children: ReactNode }) {
-  const { me, unauthorized, unread } = useMe();
+  const { me, unauthorized, unread, debugMode, impersonator } = useMe();
   // 開催中のイベントがあればタブバーに印を付ける（自動開催の確認も兼ねる）
   const { data: ev } = useSWR<CurrentEventResponse>(me ? "/api/events/current" : null, { refreshInterval: 5 * 60 * 1000 });
   const eventActive = ev?.event?.status === "active";
@@ -57,6 +58,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Header
         right={
           <>
+            {me && debugMode && (
+              <Link href="/debug" aria-label="デバッグ" className={iconLink} data-testid="debug-link">
+                <Bug size={18} />
+              </Link>
+            )}
             {me?.role === "admin" && (
               <Link href="/admin" aria-label="管理画面" className={iconLink}>
                 <ShieldCheck size={18} />
@@ -80,6 +86,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </>
         }
       />
+      {me && impersonator && <ImpersonationBanner me={me} original={impersonator} />}
       <main className="safe-bottom mx-auto w-full max-w-2xl px-4 pt-5">{children}</main>
       {/* 現在のURLを読む部品は Suspense で囲む（Next.js の静的シェルを壊さないため） */}
       <Suspense fallback={<TabBarView pathname="" eventActive={eventActive} />}>
