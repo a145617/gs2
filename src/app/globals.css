@@ -1,0 +1,507 @@
+@import "tailwindcss";
+
+/* =========================================================================
+   ひとこま デザイントークン
+   - ニューモーフィズム（背景と同色の面を光と影で浮き彫りにする）を基調
+   - グラスモーフィズム（すりガラス）をヘッダー・タブバー・シート等に使用
+   - --lx / --ly は光源の向き（-1〜1）。端末の傾きや指の位置で動く
+   - --accent はその日のお題の色に合わせて毎日変わる
+   ========================================================================= */
+:root {
+  --bg: #e6e9ef;
+  --bg-deep: #dce1e8;
+  --surface-hi: #f1f3f7;
+  --surface-lo: #d9dee6;
+  --text: #2b313b;
+  --text-2: #5b6473;
+  --text-3: #8b94a3;
+  --line: rgba(120, 134, 156, 0.2);
+  --sh-dark: rgba(163, 174, 191, 0.75);
+  --sh-light: rgba(255, 255, 255, 0.95);
+  --glass: rgba(255, 255, 255, 0.42);
+  --glass-strong: rgba(255, 255, 255, 0.66);
+  --glass-border: rgba(255, 255, 255, 0.72);
+  --glass-edge: rgba(255, 255, 255, 0.55);
+  --glass-shadow: 0 10px 34px rgba(36, 46, 72, 0.14);
+  --scrim: rgba(28, 33, 42, 0.32);
+  --accent: #6a7dff;
+  --accent-2: color-mix(in oklab, var(--accent) 70%, #ff9fd0);
+  --accent-ink: #ffffff;
+  --accent-soft: color-mix(in oklab, var(--accent) 18%, var(--bg));
+  --danger: #d6504a;
+  --ok: #3a9d6a;
+  --warn: #d79a2b;
+
+  --lx: -0.7;
+  --ly: -0.7;
+  --neu-d: 7px;
+  --neu-blur: 16px;
+  --radius: 22px;
+  --radius-sm: 14px;
+  --radius-lg: 30px;
+  --header-h: 56px;
+  --tabbar-h: 72px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #23272f;
+  --bg-deep: #1d2027;
+  --surface-hi: #2a2f38;
+  --surface-lo: #1e2228;
+  --text: #e8ebf0;
+  --text-2: #b0b7c3;
+  --text-3: #7d8594;
+  --line: rgba(255, 255, 255, 0.08);
+  --sh-dark: rgba(10, 12, 16, 0.75);
+  --sh-light: rgba(255, 255, 255, 0.06);
+  --glass: rgba(38, 42, 52, 0.52);
+  --glass-strong: rgba(44, 49, 60, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-edge: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 10px 34px rgba(0, 0, 0, 0.4);
+  --scrim: rgba(0, 0, 0, 0.5);
+  --accent-soft: color-mix(in oklab, var(--accent) 22%, var(--bg));
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --bg: #23272f;
+    --bg-deep: #1d2027;
+    --surface-hi: #2a2f38;
+    --surface-lo: #1e2228;
+    --text: #e8ebf0;
+    --text-2: #b0b7c3;
+    --text-3: #7d8594;
+    --line: rgba(255, 255, 255, 0.08);
+    --sh-dark: rgba(10, 12, 16, 0.75);
+    --sh-light: rgba(255, 255, 255, 0.06);
+    --glass: rgba(38, 42, 52, 0.52);
+    --glass-strong: rgba(44, 49, 60, 0.78);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-edge: rgba(255, 255, 255, 0.08);
+    --glass-shadow: 0 10px 34px rgba(0, 0, 0, 0.4);
+    --scrim: rgba(0, 0, 0, 0.5);
+    --accent-soft: color-mix(in oklab, var(--accent) 22%, var(--bg));
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-deep: var(--bg-deep);
+  --color-ink: var(--text);
+  --color-ink-2: var(--text-2);
+  --color-ink-3: var(--text-3);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --font-sans: var(--font-zen), "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --font-serif: var(--font-mincho), "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif;
+}
+
+/* ------------------------------------------------------------------ 基本 */
+html {
+  background: var(--bg);
+  color: var(--text);
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  min-height: 100dvh;
+  /* 背景色は html 側に置き、背景の光（.ambient, z-index:-1）が見えるようにする */
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-feature-settings: "palt";
+  line-height: 1.7;
+  overscroll-behavior-y: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+/* 部品のクラスは components レイヤーに置き、Tailwind のユーティリティで上書きできるようにする */
+@layer components {
+  /* ------------------------------------------------------- ニューモーフィズム */
+  .neu {
+    background: var(--bg);
+    border-radius: var(--radius);
+    box-shadow:
+      calc(var(--lx) * -1 * var(--neu-d)) calc(var(--ly) * -1 * var(--neu-d)) var(--neu-blur) var(--sh-dark),
+      calc(var(--lx) * var(--neu-d)) calc(var(--ly) * var(--neu-d)) var(--neu-blur) var(--sh-light);
+  }
+  
+  /* 凸面（光が当たるふくらみ） */
+  .neu-convex {
+    background: linear-gradient(
+      calc(135deg + (var(--lx) + 0.7) * 25deg),
+      var(--surface-hi),
+      var(--surface-lo)
+    );
+  }
+  
+  /* 凹面（押し込まれたくぼみ） */
+  .neu-inset {
+    background: var(--bg);
+    border-radius: var(--radius);
+    box-shadow:
+      inset calc(var(--lx) * -1 * var(--neu-d)) calc(var(--ly) * -1 * var(--neu-d)) var(--neu-blur) var(--sh-dark),
+      inset calc(var(--lx) * var(--neu-d)) calc(var(--ly) * var(--neu-d)) var(--neu-blur) var(--sh-light);
+  }
+  
+  .neu-sm {
+    --neu-d: 4px;
+    --neu-blur: 9px;
+  }
+  
+  .neu-lg {
+    --neu-d: 11px;
+    --neu-blur: 26px;
+  }
+  
+  /* 押せるボタン：押すと凹む */
+  .neu-press {
+    transition:
+      box-shadow 0.18s ease,
+      transform 0.18s ease;
+  }
+  
+  .neu-press:active,
+  .neu-press[aria-pressed="true"] {
+    box-shadow:
+      inset calc(var(--lx) * -1 * var(--neu-d)) calc(var(--ly) * -1 * var(--neu-d)) var(--neu-blur) var(--sh-dark),
+      inset calc(var(--lx) * var(--neu-d)) calc(var(--ly) * var(--neu-d)) var(--neu-blur) var(--sh-light);
+    transform: scale(0.985);
+  }
+  
+  /* アクセント色のボタン */
+  .neu-accent {
+    color: var(--accent-ink);
+    background: linear-gradient(140deg, color-mix(in oklab, var(--accent) 88%, white), var(--accent));
+    box-shadow:
+      calc(var(--lx) * -1 * var(--neu-d)) calc(var(--ly) * -1 * var(--neu-d)) var(--neu-blur)
+        color-mix(in oklab, var(--accent) 45%, var(--sh-dark)),
+      calc(var(--lx) * var(--neu-d)) calc(var(--ly) * var(--neu-d)) var(--neu-blur) var(--sh-light),
+      inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+  
+  .neu-accent.neu-press:active {
+    box-shadow:
+      inset 3px 3px 8px color-mix(in oklab, var(--accent) 60%, black),
+      inset -3px -3px 8px color-mix(in oklab, var(--accent) 70%, white);
+  }
+  
+  /* ------------------------------------------------------ グラスモーフィズム */
+  .glass {
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(20px) saturate(170%);
+    backdrop-filter: blur(20px) saturate(170%);
+    border: 1px solid var(--glass-border);
+    box-shadow:
+      var(--glass-shadow),
+      inset 0 1px 0 var(--glass-edge);
+  }
+  
+  .glass-strong {
+    background: var(--glass-strong);
+    -webkit-backdrop-filter: blur(26px) saturate(180%);
+    backdrop-filter: blur(26px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    box-shadow:
+      var(--glass-shadow),
+      inset 0 1px 0 var(--glass-edge);
+  }
+  
+  /* 光の向きに合わせて動くガラスの反射 */
+  .glass-sheen {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .glass-sheen::before {
+    content: "";
+    position: absolute;
+    inset: -40%;
+    pointer-events: none;
+    background: radial-gradient(
+      closest-side,
+      rgba(255, 255, 255, 0.32),
+      rgba(255, 255, 255, 0) 70%
+    );
+    transform: translate(calc(var(--lx) * 18%), calc(var(--ly) * 18%));
+    transition: transform 0.25s ease-out;
+  }
+  
+  /* ------------------------------------------------------------ 背景の光 */
+  .ambient {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  
+  .ambient span {
+    position: absolute;
+    width: 62vmax;
+    height: 62vmax;
+    border-radius: 50%;
+    filter: blur(70px);
+    opacity: 0.32;
+    will-change: transform;
+  }
+  
+  .ambient span:nth-child(1) {
+    top: -30vmax;
+    left: -18vmax;
+    background: var(--accent);
+    animation: drift-a 26s ease-in-out infinite alternate;
+  }
+  
+  .ambient span:nth-child(2) {
+    bottom: -34vmax;
+    right: -22vmax;
+    background: var(--accent-2);
+    animation: drift-b 32s ease-in-out infinite alternate;
+  }
+  
+  .ambient span:nth-child(3) {
+    top: 35%;
+    left: 55%;
+    width: 38vmax;
+    height: 38vmax;
+    opacity: 0.18;
+    background: color-mix(in oklab, var(--accent) 40%, #7fe0d0);
+    animation: drift-a 40s ease-in-out infinite alternate-reverse;
+  }
+}
+
+@keyframes drift-a {
+  to {
+    transform: translate(10vmax, 6vmax) scale(1.08);
+  }
+}
+
+@keyframes drift-b {
+  to {
+    transform: translate(-8vmax, -10vmax) scale(0.94);
+  }
+}
+
+@layer components {
+  /* ------------------------------------------------------------ 補助 */
+  .font-display {
+    font-family: var(--font-serif);
+    letter-spacing: 0.04em;
+  }
+  
+  .safe-bottom {
+    padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 24px);
+  }
+  
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------ お題の表示テンプレート用 */
+:root {
+  --gallery-wall: linear-gradient(#ece7df, #dbd4c8);
+  --instant-wall: linear-gradient(160deg, #efe9e0, #e2d9cc);
+  --washi: #f3eee2;
+}
+:root[data-theme="dark"] {
+  --gallery-wall: linear-gradient(#34312d, #26231f);
+  --instant-wall: linear-gradient(160deg, #3a352f, #2a2621);
+  --washi: #e9e2d2;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --gallery-wall: linear-gradient(#34312d, #26231f);
+    --instant-wall: linear-gradient(160deg, #3a352f, #2a2621);
+    --washi: #e9e2d2;
+  }
+}
+
+@layer components {
+  /* フィルムの粒子 */
+  .film-grain {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.9'/%3E%3C/svg%3E");
+    opacity: 0.2;
+    mix-blend-mode: overlay;
+    animation: film-grain 0.8s steps(4) infinite;
+  }
+  /* フィルムの光漏れ */
+  .film-leak {
+    background:
+      radial-gradient(circle at 8% 18%, rgba(255, 120, 40, 0.38), transparent 42%),
+      radial-gradient(circle at 96% 85%, rgba(255, 196, 80, 0.24), transparent 40%);
+    mix-blend-mode: screen;
+    animation: film-leak 7s ease-in-out infinite alternate;
+  }
+  /* 和紙 */
+  .washi-paper {
+    background-color: var(--washi);
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.035' numOctaves='4'/%3E%3CfeColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 0 0.33 0 0 0 0.12 0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23p)'/%3E%3C/svg%3E");
+    box-shadow:
+      7px 7px 16px var(--sh-dark),
+      -7px -7px 16px var(--sh-light),
+      inset 0 0 30px rgba(120, 100, 70, 0.12);
+  }
+}
+
+@keyframes film-grain {
+  0% {
+    background-position: 0 0;
+  }
+  25% {
+    background-position: -40px 30px;
+  }
+  50% {
+    background-position: 30px -50px;
+  }
+  75% {
+    background-position: -60px -20px;
+  }
+  100% {
+    background-position: 20px 40px;
+  }
+}
+
+@keyframes film-leak {
+  from {
+    opacity: 0.55;
+    transform: translateX(-2%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(3%);
+  }
+}
+
+/* ------------------------------------------------- ニューモーフィズムのスライダー */
+@layer components {
+  .neu-range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 26px;
+    background: transparent;
+    touch-action: pan-y;
+  }
+  .neu-range::-webkit-slider-runnable-track {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--bg);
+    box-shadow:
+      inset 2px 2px 5px var(--sh-dark),
+      inset -2px -2px 5px var(--sh-light);
+  }
+  .neu-range::-moz-range-track {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--bg);
+    box-shadow:
+      inset 2px 2px 5px var(--sh-dark),
+      inset -2px -2px 5px var(--sh-light);
+  }
+  .neu-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 24px;
+    height: 24px;
+    margin-top: -8px;
+    border-radius: 50%;
+    background: linear-gradient(140deg, var(--surface-hi), var(--surface-lo));
+    box-shadow:
+      3px 3px 7px var(--sh-dark),
+      -3px -3px 7px var(--sh-light),
+      inset 0 0 0 6px color-mix(in oklab, var(--accent) 0%, transparent);
+    border: 2px solid color-mix(in oklab, var(--accent) 55%, transparent);
+  }
+  .neu-range::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: linear-gradient(140deg, var(--surface-hi), var(--surface-lo));
+    box-shadow:
+      3px 3px 7px var(--sh-dark),
+      -3px -3px 7px var(--sh-light);
+    border: 2px solid color-mix(in oklab, var(--accent) 55%, transparent);
+  }
+  .neu-range:focus-visible {
+    outline: none;
+  }
+  .neu-range:focus-visible::-webkit-slider-thumb {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 「視差効果を減らす」設定の端末では、アニメーションを止めて最終状態で表示する */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

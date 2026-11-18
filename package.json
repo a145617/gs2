@@ -1,0 +1,66 @@
+{
+  "name": "hitokoma",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "db": "node scripts/dev-db.mjs",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "seed": "tsx scripts/seed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "vercel-build": "node scripts/build-workers.mjs && npm run db:migrate && npm run seed && next build",
+    "predev": "node scripts/build-workers.mjs",
+    "prebuild": "node scripts/build-workers.mjs"
+  },
+  "dependencies": {
+    "@colorhythm/libraw-wasm": "^1.1.1",
+    "@vercel/blob": "^2.9.0",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.4",
+    "exifr": "^7.1.3",
+    "lucide-react": "^1.74.0",
+    "next": "16.4.6",
+    "postgres": "^3.4.9",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "^0.0.1",
+    "sharp": "^0.35.5",
+    "swr": "^2.5.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "@tailwindcss/turbopack": "4.3.3",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.11",
+    "embedded-postgres": "^18.6.0-beta.19",
+    "esbuild": "^0.28.2",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.6",
+    "tailwindcss": "4.3.3",
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^5.1.0"
+  },
+  "overrides": {
+    "@vercel/cli-config": {
+      "zod": "^4.6.7"
+    }
+  },
+  "allowScripts": {
+    "esbuild@0.18.20": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true,
+    "@embedded-postgres/windows-x64@18.6.0-beta.19": true
+  }
+}
